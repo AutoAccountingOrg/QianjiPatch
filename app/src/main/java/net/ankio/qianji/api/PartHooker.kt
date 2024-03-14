@@ -16,6 +16,7 @@
 package net.ankio.qianji.api
 
 import android.content.Context
+import android.util.Log
 import net.ankio.qianji.HookMainApp
 
 abstract class PartHooker(val hooker: Hooker) {
@@ -28,7 +29,7 @@ abstract class PartHooker(val hooker: Hooker) {
      * 正常输出日志
      */
     fun log(string: String){
-        hooker.hookUtils.log(HookMainApp.getTag(hooker.appName, getSimpleName()), string)
+        Log.i(HookMainApp.getTag(hooker.appName, getSimpleName()), string)
     }
 
     private fun getSimpleName(): String {
@@ -41,17 +42,6 @@ abstract class PartHooker(val hooker: Hooker) {
         return callerClassName.substringAfterLast('.') // 获取简单类名
     }
 
-    /**
-     * 调试模式输出日志
-     */
-    fun logD(string: String){
-        hooker.hookUtils.logD(HookMainApp.getTag(hooker.appName, getSimpleName()), string)
 
-    }
-
-    fun analyzeData(dataType: Int,  data: String,app:String? = null)
-    {
-        hooker.hookUtils.analyzeData(dataType, app?:hooker.packPageName, data,hooker.appName)
-    }
 
 }
