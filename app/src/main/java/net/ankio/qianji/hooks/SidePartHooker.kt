@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.auto.sdk.exception.AutoAccountingException
+import net.ankio.common.config.AccountingConfig
 import net.ankio.qianji.BuildConfig
 import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
@@ -136,7 +137,7 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
     private suspend fun tryStartAutoAccounting(activity: Activity) {
         AutoAccounting.init(
             activity,
-            Gson().toJson(AutoAccounting()),
+            Gson().toJson(hooker.configSyncUtils.config),
         )
     }
 
@@ -213,7 +214,7 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
                                    context.startActivityForResult(intent,codeAuth)
                                }catch (e: ActivityNotFoundException){
                                    //没有自动记账，需要引导用户下载自动记账App
-                                   e.printStackTrace()
+                                  XposedBridge.log(e)
                                    Toast.makeText(context,"未找到自动记账，请从Github下载自动记账App",Toast.LENGTH_SHORT).show()
                                   // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
                                    val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"

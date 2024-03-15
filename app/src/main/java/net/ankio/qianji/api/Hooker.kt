@@ -43,12 +43,14 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import net.ankio.qianji.ConfigSyncUtils
 import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.HookUtils
 
 abstract class Hooker : iHooker {
     abstract var partHookers: MutableList<PartHooker>
     lateinit var hookUtils :HookUtils
+    lateinit var configSyncUtils: ConfigSyncUtils
     private var TAG = "QianjiPatch"
     private lateinit var job : Job
 
@@ -96,7 +98,7 @@ abstract class Hooker : iHooker {
 
         job = Job()
         scope = CoroutineScope(Dispatchers.IO + job)
-
+        configSyncUtils = ConfigSyncUtils(application,this)
       hookLoadPackage(classLoader,application)
 
         Log.i(HookMainApp.getTag(appName,packPageName),"欢迎使用钱迹补丁，该日志表示 $appName App 已被hook。")
