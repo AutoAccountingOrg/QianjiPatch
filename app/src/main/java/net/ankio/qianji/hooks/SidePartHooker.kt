@@ -1,5 +1,6 @@
 package net.ankio.qianji.hooks
 
+
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
@@ -7,8 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
-import android.util.Log
 import android.view.LayoutInflater
+import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Switch
@@ -18,14 +20,11 @@ import com.google.gson.Gson
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.auto.sdk.exception.AutoAccountingException
-import net.ankio.common.config.AccountingConfig
 import net.ankio.qianji.BuildConfig
 import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
@@ -141,7 +140,25 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
         )
     }
 
+private fun setVipName(obj: FrameLayout,classLoader: ClassLoader?){
+    val vipName = hooker.hookUtils.readData("vipName")
+    if(vipName!==""){
+        //处理会员问题
+        val rClass = Class.forName("com.mutangtech.qianji.R\$id", true, classLoader)
+        val resourceId = rClass.getField("settings_vip_badge").getInt(null)
 
+        // 调用 findViewById 并转换为 TextView
+        val textView = XposedHelpers.callMethod(
+            obj,
+            "findViewById",
+            resourceId
+        ) as TextView
+
+        textView.visibility = View.VISIBLE
+        textView.text = vipName
+    }
+
+}
 
 private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
         var hooked = false
@@ -152,16 +169,19 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
             object : XC_MethodHook(){
                 override fun afterHookedMethod(param: MethodHookParam?) {
                     super.afterHookedMethod(param)
-                    if(hooked)return
-                    hooked = true
                     //只hook一次
                     val obj = param!!.thisObject as FrameLayout
 
+                    setVipName(obj,classLoader)
+
+
+                    if(hooked)return
+                    hooked = true
+
+
                     hooker.hookUtils.findField(obj){ name, value ->
                         if(value is LinearLayout){
-                            kotlin.runCatching {
-                                //获取Activity
-                              //  val activity = XposedHelpers.callMethod(obj, "getContext") as Context
+                            runCatching {
                                 XposedHelpers.callMethod(activity.resources.assets, "addAssetPath", HookMainApp.modulePath)
                                 addSettingMenu(value , activity,classLoader)
                             }.onFailure {
@@ -195,15 +215,18 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
         view.setOnClickListener {
             //弹出自定义布局
             val menuListView = LayoutInflater.from(context).inflate(R.layout.menu_list, null)
+            menuListView.setBackgroundColor(backgroundColor)
             //弹窗AlertDialog
             val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
-            autoAccounting = menuListView.findViewById<Switch>(R.id.autoAccounting)
+            autoAccounting = menuListView.findViewById(R.id.autoAccounting)
+            autoAccounting.setTextColor(mainColor)
             autoAccounting.isChecked = isAutoAccounting == "true"
             autoAccounting.setOnClickListener {
                 if(autoAccounting.isChecked){
                    hooker.scope.launch {
                        runCatching {
                            tryStartAutoAccounting(context)
+                           hooker.hookUtils.writeData("isAutoAccounting","true")
                        }.onFailure {
                            withContext(Dispatchers.Main){
                                autoAccounting.isChecked = false
@@ -232,6 +255,30 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
                    }
                 }
             }
+
+            val title1 = menuListView.findViewById<TextView>(R.id.title1)
+            title1.setTextColor(subColor)
+
+            val title2 = menuListView.findViewById<TextView>(R.id.title2)
+            title2.setTextColor(subColor)
+
+            val title3 = menuListView.findViewById<TextView>(R.id.title3)
+            title3.setTextColor(subColor)
+
+            val title4 = menuListView.findViewById<TextView>(R.id.title4)
+            title4.setTextColor(subColor)
+
+            val editText = menuListView.findViewById<TextView>(R.id.editTextText)
+            editText.setTextColor(mainColor)
+            editText.text = hooker.hookUtils.readData("vipName")
+            editText.setOnEditorActionListener { v, actionId, event ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    hooker.hookUtils.writeData("vipName",v.text.toString())
+                    setVipName(linearLayout.parent as FrameLayout,classLoader)
+                }
+                false
+            }
+
             // 创建AlertDialog并设置自定义视图
             val dialog: AlertDialog = AlertDialog.Builder(context)
                 .setIcon(R.mipmap.ic_launcher)
