@@ -40,11 +40,19 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import net.ankio.qianji.HookMainApp
+import net.ankio.qianji.HookUtils
 
 abstract class Hooker : iHooker {
     abstract var partHookers: MutableList<PartHooker>
+    lateinit var hookUtils :HookUtils
     private var TAG = "QianjiPatch"
+    private lateinit var job : Job
+
+     lateinit var scope : CoroutineScope
     private fun hookMainInOtherAppContext() {
         var hookStatus = false
         XposedHelpers.findAndHookMethod(
@@ -71,17 +79,27 @@ abstract class Hooker : iHooker {
         })
     }
 
+    fun stop(){
+        if(::job.isInitialized){
+            job.cancel()
+        }
+    }
 
     fun initLoadPackage(classLoader: ClassLoader?,application: Application){
         XposedBridge.log("[$TAG] Welcome to 钱迹补丁")
+        Log.i(TAG,"[$TAG] Welcome to 钱迹补丁")
         if(classLoader==null){
             XposedBridge.log("[AutoAccounting]"+this.appName+"hook失败: classloader 或 context = null")
             return
         }
+        hookUtils = HookUtils(application)
 
+        job = Job()
+        scope = CoroutineScope(Dispatchers.IO + job)
 
-        hookLoadPackage(classLoader,application)
-      Log.i(HookMainApp.getTag(appName,packPageName),"欢迎使用自动记账，该日志表示 $appName App 已被hook。")
+      hookLoadPackage(classLoader,application)
+
+        Log.i(HookMainApp.getTag(appName,packPageName),"欢迎使用钱迹补丁，该日志表示 $appName App 已被hook。")
         for (hook in partHookers) {
             try {
                 Log.i(HookMainApp.getTag(appName,packPageName),"正在初始化Hook:${hook.hookName}...")
@@ -105,5 +123,6 @@ abstract class Hooker : iHooker {
         if (pkg != packPageName || processName != packPageName) return
         hookMainInOtherAppContext()
     }
+
 
 }

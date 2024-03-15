@@ -22,6 +22,7 @@ import net.ankio.qianji.HookMainApp
 abstract class PartHooker(val hooker: Hooker) {
     abstract  val hookName: String
 
+    var code = "0"
 
     abstract fun onInit(classLoader: ClassLoader?,context: Context?)
 
@@ -29,7 +30,7 @@ abstract class PartHooker(val hooker: Hooker) {
      * 正常输出日志
      */
     fun log(string: String){
-        Log.i(HookMainApp.getTag(hooker.appName, getSimpleName()), string)
+        hooker.hookUtils.log(HookMainApp.getTag(hooker.appName, getSimpleName()), string)
     }
 
     private fun getSimpleName(): String {
@@ -42,6 +43,18 @@ abstract class PartHooker(val hooker: Hooker) {
         return callerClassName.substringAfterLast('.') // 获取简单类名
     }
 
+    private fun getKey(key:String = ""): String {
+        return "${hookName}_${code}_${key}"
+    }
+
+
+    fun getValue(key:String = ""):String{
+        return hooker.hookUtils.readData(getKey(key))
+    }
+
+    fun setValue(key:String = "",value:String){
+        hooker.hookUtils.writeData(getKey(key),value)
+    }
 
 
 }

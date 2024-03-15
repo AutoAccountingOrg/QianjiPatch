@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "net.ankio.qianji"
-        minSdk 24
+        minSdk 28
         targetSdk 34
         versionCode 1
         versionName "1.0"
@@ -30,11 +30,21 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+    aaptOptions {
+        additionalParameters '--allow-reserved-package-id', '--package-id', '0x65'
+    }
+    buildFeatures {
+        buildConfig true
+    }
 }
 
 dependencies {
 
     implementation libs.androidx.core.ktx
+    //添加kotlin协程
+    implementation libs.kotlinx.coroutines.android
+    //添加Gson
+    implementation libs.gson
     implementation libs.androidx.appcompat
     implementation libs.material
     testImplementation libs.junit

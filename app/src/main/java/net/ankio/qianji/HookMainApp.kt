@@ -26,6 +26,8 @@ class HookMainApp : IXposedHookLoadPackage,IXposedHookZygoteInit {
             return tag
         }
 
+        var modulePath = ""
+
     }
 
     private var mHookList: MutableList<Hooker> = arrayListOf(
@@ -42,13 +44,14 @@ class HookMainApp : IXposedHookLoadPackage,IXposedHookZygoteInit {
                 e.message?.let { Log.e("钱迹", it) }
                 println(e)
                 XposedBridge.log(e.message)
+                hook.stop()
             }
 
         }
     }
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam?) {
-
+        modulePath = startupParam?.modulePath?:""
     }
 
 }

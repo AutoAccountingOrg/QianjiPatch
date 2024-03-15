@@ -23,4 +23,5 @@ interface iHooker {
     val packPageName: String
     val appName: String
     fun onLoadPackage(lpparam: LoadPackageParam?)
+
 }

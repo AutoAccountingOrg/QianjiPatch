@@ -9,7 +9,8 @@ appcompat = "1.6.1"
 material = "1.11.0"
 sdk = "000a900c6a"
 xposed = "82"
-
+kotlinxCoroutinesAndroid = "1.8.0"
+gson = "2.10.1"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 common = { module = "com.github.AutoAccountingOrg.AutoAccounting:common", version.ref = "sdk" }
@@ -20,7 +21,8 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 sdk = { module = "com.github.AutoAccountingOrg.AutoAccounting:sdk", version.ref = "sdk" }
 xposed = { module = "de.robv.android.xposed:api", version.ref = "xposed" }
-
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
