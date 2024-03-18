@@ -1,19 +1,22 @@
 [versions]
 agp = "8.4.0-alpha12"
-kotlin = "1.9.0"
+dexlib2 = "2.5.2"
+kotlin = "1.9.21"
 coreKtx = "1.12.0"
 junit = "4.13.2"
 junitVersion = "1.1.5"
 espressoCore = "3.5.1"
 appcompat = "1.6.1"
 material = "1.11.0"
-sdk = "000a900c6a"
+sdk = "-SNAPSHOT"
 xposed = "82"
 kotlinxCoroutinesAndroid = "1.8.0"
 gson = "2.10.1"
+jetbrainsKotlinJvm = "1.9.21"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 common = { module = "com.github.AutoAccountingOrg.AutoAccounting:common", version.ref = "sdk" }
+dexlib2 = { module = "org.smali:dexlib2", version.ref = "dexlib2" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -26,4 +29,5 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
 
