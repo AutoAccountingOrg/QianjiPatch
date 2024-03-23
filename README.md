@@ -12,7 +12,7 @@
 
 [钱迹](https://qianjiapp.com/)是一个非常优秀的记账软件，让我们给他再撒点魔法的粉末~起飞！
 
-本项目是一个**非官方**的项目，请注意区分。
+本项目是一个**非钱迹官方**的项目，请注意区分。
 
 ## 新增功能
 
@@ -36,8 +36,10 @@ chmod +x ./gradlew && ./gradlew assemble
 
 ## 技术栈
 
-- XposedAPI
-- Kotlin
+- [Kotlin](https://kotlinlang.org/): 主要的编程语言。
+- [Java](https://www.java.com/): 项目中也使用了Java编程语言。
+- [Gradle](https://gradle.org/): 用于项目的构建和依赖管理。
+- [XposedAPI](https://github.com/rovo89/XposedBridge): 用于实现一些核心功能。
 
 ## 使用示例
 
