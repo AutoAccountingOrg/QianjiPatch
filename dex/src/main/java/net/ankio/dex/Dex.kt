@@ -6,6 +6,7 @@ import net.ankio.dex.model.ClazzMethod
 import org.jf.dexlib2.DexFileFactory
 import org.jf.dexlib2.iface.DexFile
 import java.lang.reflect.Field
+import java.lang.reflect.Modifier
 
 object Dex {
 
@@ -15,7 +16,7 @@ object Dex {
         for (classDef in dexFile.classes) {
             var className = classDef.type
             className = className.substring(1, className.length - 1).replace('/', '.')
-
+          //  println(className)
             rules.forEach { itClazz ->
                 //判断包名规则有要求吗？有要求就使用正则匹配
                 val condition1 = if (itClazz.nameRule.isNotEmpty()) {
@@ -23,26 +24,46 @@ object Dex {
                 } else {
                     true
                 }
+
+
+
+
                 if(condition1){
                     val clazz = classLoader.loadClass(className)
-                    val condition2 = if (itClazz.fields.isNotEmpty()) {
-                        //这里应该是判断字段是否存在吧？
-                        itClazz.fields.map { field ->
-                            findFieldIsExist(clazz, field)
-                        }.all { it }
-                    } else {
+
+                    val condition4 = if(itClazz.type.isNotEmpty()){
+                        when(itClazz.type){
+                            "interface" -> clazz.isInterface
+                            "abstract" -> Modifier.isAbstract(clazz.modifiers)
+                            else -> true
+                        }
+                    }else{
                         true
                     }
-                    val condition3 = if (itClazz.methods.isNotEmpty()) {
-                        itClazz.methods.map { method ->
-                            findMethodIsExist(clazz, method)
-                        }.all { it }
-                    } else {
-                        true
+
+                    if(condition4){
+                        val condition2 = if (itClazz.fields.isNotEmpty()) {
+                            //这里应该是判断字段是否存在吧？
+                            itClazz.fields.map { field ->
+                                findFieldIsExist(clazz, field)
+                            }.all { it }
+                        } else {
+                            true
+                        }
+                        val condition3 = if (itClazz.methods.isNotEmpty()) {
+                            itClazz.methods.map { method ->
+                                findMethodIsExist(clazz, method)
+                            }.all { it }
+                        } else {
+                            true
+                        }
+                        if (condition2 && condition3) {
+                            results[itClazz.name] = className
+                        }
                     }
-                    if (condition2 && condition3) {
-                        results[itClazz.name] = className
-                    }
+
+
+
                 }
             }
         }
@@ -68,7 +89,8 @@ object Dex {
     /**
      * 判断某个字段是否存在
      */
-    fun findFieldIsExist(clazz: Class<*>, field: ClazzField): Boolean {
+    private fun findFieldIsExist(clazz: Class<*>, field: ClazzField): Boolean {
+
         if (field.name.isEmpty() && field.type.isEmpty()) {
             return false
         }
@@ -140,20 +162,22 @@ object Dex {
     /**
      * 判断某个方法是否在给定的clazz里面
      */
-    fun findMethodIsExist(clazz: Class<*>, clazzMethod: ClazzMethod): Boolean {
-
+    private fun findMethodIsExist(clazz: Class<*>, clazzMethod: ClazzMethod): Boolean {
         if (clazzMethod.name.isEmpty() && clazzMethod.returnType.isEmpty() && clazzMethod.modifiers.isEmpty() && clazzMethod.parameters.isEmpty()) {
             return false
         }
 
         //判断指定要求的字段是否在class里面
-        val methods = clazz.declaredMethods
+        val methods = clazz.methods
+
         for (method in methods) {
             val condition1 = if (clazzMethod.name.isNotEmpty()) {
                 method.name == clazzMethod.name
             } else {
                 true
             }
+
+
 
             val condition2 = if (clazzMethod.returnType.isNotEmpty()) {
                 method.returnType.name == clazzMethod.returnType
