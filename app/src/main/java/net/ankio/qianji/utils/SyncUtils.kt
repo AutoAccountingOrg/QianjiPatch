@@ -18,6 +18,7 @@ import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import java.lang.reflect.Type
 import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 
 /**
@@ -44,19 +45,13 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         category = classLoader.loadClass("com.mutangtech.qianji.data.model.Category")
     }
 
-    private suspend fun getCategoryList(bookId: Long): HashMap<String,Any> = suspendCancellableCoroutine { continuation ->
-        // 在一个新的线程中执行需要Looper的操作
-        Thread {
-            Looper.prepare()
+    private suspend fun getCategoryList(bookId: Long): HashMap<String,Any> = suspendCoroutine { continuation ->
 
             val handler = InvocationHandler { _, method, args ->
                 if (method.name == "onGetCategoryList") {
                     val list1 = args[0]
                     val list2 = args[1]
-                    // 在主线程中恢复协程
-                    Handler(Looper.getMainLooper()).post {
-                        continuation.resume(hashMapOf("list1" to list1, "list2" to list2))
-                    }
+                    continuation.resume(hashMapOf("list1" to list1, "list2" to list2))
                 }
                 null
             }
@@ -64,14 +59,7 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
             val constructor = cateInitPresenterImplClazz.getDeclaredConstructor(proxyClazz)
             val obj = constructor.newInstance(proxyInstance)
             val loadCategoryListMethod = cateInitPresenterImplClazz.getMethod("loadCategoryList", Long::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
-            loadCategoryListMethod.invoke(obj, bookId, true)
-
-            Looper.loop()
-        }.start()
-
-        continuation.invokeOnCancellation {
-            // 清理资源的代码
-        }
+            loadCategoryListMethod.invoke(obj, bookId, false)
 
     }
 
@@ -108,16 +96,18 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
                        "name" -> bookModel.name = value as String
                        "cover" -> bookModel.icon = value as String
                        "bookId" -> {
-                          val hashMap = getCategoryList(value as Long)
-                           val arrayList = arrayListOf<CategoryModel>()
-                           convertCategoryToModel(hashMap["list1"] as List<Any>,BillType.Expend).let {
-                               arrayList.addAll(it)
-                           }
-                           convertCategoryToModel(hashMap["list2"] as List<Any>,BillType.Income).let {
-                               arrayList.addAll(it)
-                           }
+                         withContext(Dispatchers.Main){
+                             val hashMap = getCategoryList(value as Long)
+                             val arrayList = arrayListOf<CategoryModel>()
+                             convertCategoryToModel(hashMap["list1"] as List<Any>,BillType.Expend).let {
+                                 arrayList.addAll(it)
+                             }
+                             convertCategoryToModel(hashMap["list2"] as List<Any>,BillType.Income).let {
+                                 arrayList.addAll(it)
+                             }
 
-                           bookModel.category = arrayList
+                             bookModel.category = arrayList
+                         }
                        }
                    }
                }
@@ -230,10 +220,31 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
                     "id" -> model.id = (value as Long).toString()
                     "parentId" -> model.parent = (value as Long).toString()
                     "sort" -> model.sort = value  as Int
+                    "subList" -> {
+                        if(value!=null){
+                            val subList = value as List<Any>
+                            XposedBridge.log("子分类:${Gson().toJson(subList)}")
+                            categories.addAll(convertCategoryToModel(subList,type))
+                        }
+
+                    }
                 }
             }
             categories.add(model)
         }
         return categories
+    }
+
+
+    suspend fun assets(){
+
+    }
+
+    suspend fun billsFromQianJi(){
+
+    }
+
+    suspend fun billsFromAuto(){
+
     }
 }
