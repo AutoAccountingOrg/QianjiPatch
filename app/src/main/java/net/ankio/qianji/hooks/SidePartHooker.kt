@@ -101,7 +101,9 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                                 XposedBridge.log(it)
                             }.onSuccess {
                                 if (::autoAccounting.isInitialized){
-                                    autoAccounting.isChecked = true
+                                   withContext(Dispatchers.Main){
+                                       autoAccounting.isChecked = true
+                                   }
                                 }
                                 hooker.hookUtils.writeData("isAutoAccounting","true")
                                 syncBillsFromAutoAccounting(activity)
@@ -147,6 +149,9 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
        hooker.scope.launch {
            //账本等信息优先同步
            hooker.syncUtils.books()
+           //同步账单【债务、报销】
+           // 从自动记账同步需要记录的账单
+
        }
 
     }
