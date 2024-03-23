@@ -25,6 +25,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.auto.sdk.exception.AutoAccountingException
+import net.ankio.dex.Dex
+import net.ankio.dex.model.ClazzField
 import net.ankio.qianji.BuildConfig
 import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
@@ -36,7 +38,6 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
     override val hookName: String = "钱迹左侧设置页"
 
     private val codeAuth = 52045001
-
 
     override fun onInit(classLoader: ClassLoader?, context: Context?) {
         if(classLoader == null) return
@@ -54,6 +55,19 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                  * activity as  ComponentActivity
                  */
                 hookMenu(activity,classLoader)
+                hooker.syncUtils.init()
+                val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
+                XposedBridge.log("isAutoAccounting:$isAutoAccounting")
+                if(isAutoAccounting == "true"){
+                    hooker.scope.launch {
+                        runCatching {
+                            tryStartAutoAccounting(activity)
+                        }.onFailure {
+                            XposedBridge.log(it)
+                        }
+                    }
+                }
+
             }
         })
 
@@ -90,8 +104,7 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                                     autoAccounting.isChecked = true
                                 }
                                 hooker.hookUtils.writeData("isAutoAccounting","true")
-                                //授权成功后可以一次性将所有数据先同步给自动记账
-                                //TODO 钱迹同步数据给自动记账
+                                syncBillsFromAutoAccounting(activity)
                             }
                         }
 
@@ -116,7 +129,9 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                 val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
                 XposedBridge.log("isAutoAccounting:$isAutoAccounting")
                 if(isAutoAccounting == "true"){
-                    syncBillsFromAutoAccounting(activity)
+                    hooker.scope.launch {
+                        syncBillsFromAutoAccounting(activity)
+                    }
                 }
             }
         })
@@ -128,32 +143,28 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
 
 
 
-    private fun syncBillsFromAutoAccounting(activity: Activity){
+    private suspend fun syncBillsFromAutoAccounting(activity: Activity) = withContext(Dispatchers.IO){
+       hooker.scope.launch {
+           //账本等信息优先同步
+           hooker.syncUtils.books()
+       }
 
     }
 
 
-    private suspend fun tryStartAutoAccounting(activity: Activity) {
+    private suspend fun tryStartAutoAccounting(activity: Activity) = withContext(Dispatchers.IO) {
         AutoAccounting.init(
             activity,
             Gson().toJson(hooker.configSyncUtils.config),
         )
+
     }
 
 private fun setVipName(obj: FrameLayout,classLoader: ClassLoader?){
     val vipName = hooker.hookUtils.readData("vipName")
     if(vipName!==""){
-        //处理会员问题
-        val rClass = Class.forName("com.mutangtech.qianji.R\$id", true, classLoader)
-        val resourceId = rClass.getField("settings_vip_badge").getInt(null)
-
         // 调用 findViewById 并转换为 TextView
-        val textView = XposedHelpers.callMethod(
-            obj,
-            "findViewById",
-            resourceId
-        ) as TextView
-
+        val textView = getViewById(obj,classLoader!!,"settings_vip_badge")  as TextView
         textView.visibility = View.VISIBLE
         textView.text = vipName
     }
@@ -162,9 +173,9 @@ private fun setVipName(obj: FrameLayout,classLoader: ClassLoader?){
 
 private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
         var hooked = false
+    val clazz = classLoader!!.loadClass("com.mutangtech.qianji.ui.maindrawer.MainDrawerLayout")
         XposedHelpers.findAndHookMethod(
-            "com.mutangtech.qianji.ui.maindrawer.MainDrawerLayout",
-            classLoader ,
+            clazz,
             "refreshAccount",
             object : XC_MethodHook(){
                 override fun afterHookedMethod(param: MethodHookParam?) {
@@ -174,22 +185,17 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
 
                     setVipName(obj,classLoader)
 
-
                     if(hooked)return
                     hooked = true
 
-
-                    hooker.hookUtils.findField(obj){ name, value ->
-                        if(value is LinearLayout){
-                            runCatching {
-                                XposedHelpers.callMethod(activity.resources.assets, "addAssetPath", HookMainApp.modulePath)
-                                addSettingMenu(value , activity,classLoader)
-                            }.onFailure {
-                                XposedBridge.log(it)
-                            }
-                            return@findField true
-                        }
-                        false
+                    // 调用 findViewById 并转换为 TextView
+                    val linearLayout = getViewById(obj,classLoader,"main_drawer_content_layout") as LinearLayout
+                    runCatching {
+                        XposedHelpers.callMethod(activity.resources.assets, "addAssetPath", HookMainApp.modulePath)
+                        //找到了obj里面的name字段
+                        addSettingMenu(linearLayout , activity,classLoader)
+                    }.onFailure {
+                        XposedBridge.log(it)
                     }
                 }
             })
@@ -198,6 +204,19 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
 
     private lateinit var autoAccounting: Switch
 
+    private lateinit var rClass : Class<*>
+    fun getViewById(obj: FrameLayout,classLoader: ClassLoader, id: String): View {
+        if(!::rClass.isInitialized){
+            rClass = Class.forName("com.mutangtech.qianji.R\$id", true, classLoader)
+        }
+        val resourceId = rClass.getField(id).getInt(null)
+        // 调用 findViewById 并转换为 TextView
+      return  XposedHelpers.callMethod(
+            obj,
+            "findViewById",
+            resourceId
+        ) as View
+    }
 
     fun addSettingMenu(linearLayout: LinearLayout, context: Activity,classLoader: ClassLoader?){
         val isDarkMode: Boolean = isDarkMode(context)
@@ -295,7 +314,7 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
     }
 
 
-    fun isDarkMode(context: Context): Boolean {
+    private fun isDarkMode(context: Context): Boolean {
         return Configuration.UI_MODE_NIGHT_YES == (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
     }
 

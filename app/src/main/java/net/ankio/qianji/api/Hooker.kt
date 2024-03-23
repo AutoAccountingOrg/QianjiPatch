@@ -43,13 +43,15 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import net.ankio.qianji.ConfigSyncUtils
+import net.ankio.qianji.utils.ConfigSyncUtils
 import net.ankio.qianji.HookMainApp
-import net.ankio.qianji.HookUtils
+import net.ankio.qianji.utils.HookUtils
+import net.ankio.qianji.utils.SyncUtils
 
 abstract class Hooker : iHooker {
+    lateinit var syncUtils: SyncUtils
     abstract var partHookers: MutableList<PartHooker>
-    lateinit var hookUtils :HookUtils
+    lateinit var hookUtils : HookUtils
     lateinit var configSyncUtils: ConfigSyncUtils
     private var TAG = "QianjiPatch"
     private lateinit var job : Job
@@ -99,23 +101,27 @@ abstract class Hooker : iHooker {
         job = Job()
         scope = CoroutineScope(Dispatchers.IO + job)
         configSyncUtils = ConfigSyncUtils(application,this)
-      hookLoadPackage(classLoader,application)
+        syncUtils = SyncUtils(application, classLoader,this)
 
-        Log.i(HookMainApp.getTag(appName,packPageName),"欢迎使用钱迹补丁，该日志表示 $appName App 已被hook。")
-        for (hook in partHookers) {
-            try {
-                Log.i(HookMainApp.getTag(appName,packPageName),"正在初始化Hook:${hook.hookName}...")
-                hook.onInit(classLoader,application)
-            }catch (e:Exception){
-                e.message?.let { Log.e("AutoAccountingError", it) }
-                Log.i(HookMainApp.getTag(),"钱迹补丁Hook异常..${e.message}.")
-                XposedBridge.log(e)
+        if(hookLoadPackage(classLoader,application)){
+            Log.i(HookMainApp.getTag(appName,packPageName),"欢迎使用钱迹补丁，该日志表示 $appName App 已被hook。")
+            for (hook in partHookers) {
+                try {
+                    Log.i(HookMainApp.getTag(appName,packPageName),"正在初始化Hook:${hook.hookName}...")
+                    hook.onInit(classLoader,application)
+                }catch (e:Exception){
+                    e.message?.let { Log.e("AutoAccountingError", it) }
+                    Log.i(HookMainApp.getTag(),"钱迹补丁Hook异常..${e.message}.")
+                    XposedBridge.log(e)
+                }
             }
         }
+
+
     }
 
     @Throws(ClassNotFoundException::class)
-    abstract fun hookLoadPackage(classLoader: ClassLoader?,context: Context?)
+    abstract fun hookLoadPackage(classLoader: ClassLoader?,context: Context?):Boolean
     override fun onLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam?) {
         val pkg = lpparam?.packageName
         val processName = lpparam?.processName

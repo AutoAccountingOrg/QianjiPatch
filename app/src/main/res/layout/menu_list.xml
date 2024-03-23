@@ -21,6 +21,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="自动记账（未登录亦可）" />
+
     <TextView
         android:textSize="16sp"
         android:padding="10dp"
@@ -28,6 +29,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="自定义会员称呼" />
+
     <EditText
         android:id="@+id/editTextText"
         android:layout_width="match_parent"
@@ -99,8 +101,6 @@
             android:layout_height="wrap_content"
             android:text="导入本地数据" />
     </LinearLayout>
-
-
 
 
 </LinearLayout>

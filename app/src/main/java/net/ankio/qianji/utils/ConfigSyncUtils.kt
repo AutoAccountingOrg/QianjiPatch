@@ -1,4 +1,4 @@
-package net.ankio.qianji
+package net.ankio.qianji.utils
 
 import android.content.Context
 import com.google.gson.Gson
