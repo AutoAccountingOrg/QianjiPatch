@@ -25,8 +25,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.auto.sdk.exception.AutoAccountingException
-import net.ankio.dex.Dex
-import net.ankio.dex.model.ClazzField
 import net.ankio.qianji.BuildConfig
 import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
@@ -151,7 +149,7 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
            hooker.syncUtils.books()
            //同步账单【债务、报销】
            // 从自动记账同步需要记录的账单
-
+           hooker.syncUtils.assets()
        }
 
     }
@@ -204,7 +202,7 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
                     }
                 }
             })
-    }
+}
 
 
     private lateinit var autoAccounting: Switch

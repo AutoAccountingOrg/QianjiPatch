@@ -25,7 +25,8 @@ class QianjiHooker: Hooker(){
 
     override var clazz: HashMap<String, String> = hashMapOf(
         "BookManager" to "",
-        "onGetCategoryList" to ""
+        "onGetCategoryList" to "",
+        "onGetAssetsFromApi" to ""
     )
 
     private val clazzRule = mutableListOf(
@@ -65,6 +66,45 @@ class QianjiHooker: Hooker(){
                     )
                 )
             )
+        ),
+        Clazz(
+            type = "interface",
+            name = "onGetAssetsFromApi",
+            nameRule = "^com.mutangtech.qianji.asset.account.mvp\\..+",
+            methods = listOf(
+                ClazzMethod(
+                    name = "onGetAssetsFromApi",
+                    returnType = "void",
+                    parameters = listOf(
+                        ClazzField(
+                            type = "boolean"
+                        ),
+                        ClazzField(
+                            type = "java.util.List"
+                        ),
+                        ClazzField(
+                            type = "java.util.HashMap"
+                        )
+                    )
+                ),
+                ClazzMethod(
+                    name = "onGetAssetsFromDB",
+                    returnType = "void",
+                    parameters = listOf(
+
+                        ClazzField(
+                            type = "java.util.List"
+                        ),
+                        ClazzField(
+                            type = "boolean"
+                        ),
+                        ClazzField(
+                            type = "java.util.HashMap"
+                        )
+                    )
+                ),
+
+            )
         )
     )
     override fun hookLoadPackage(classLoader: ClassLoader?, context: Context?):Boolean {
@@ -73,6 +113,9 @@ class QianjiHooker: Hooker(){
         if(adaptationVersion == code){
             runCatching {
                 clazz = Gson().fromJson(hookUtils.readData("clazz"),HashMap::class.java) as HashMap<String, String>
+                if(clazz.size!=clazzRule.size){
+                    throw Exception("适配失败")
+                }
             }.onFailure {
                 hookUtils.writeData("adaptation","0")
                 XposedBridge.log(it)
@@ -82,7 +125,7 @@ class QianjiHooker: Hooker(){
 
         }
         hookUtils.toast("钱迹补丁开始适配中...")
-        val total = clazz.size
+        val total = clazzRule.size
         val hashMap = Dex.findClazz(context!!.packageResourcePath, classLoader!!, clazzRule)
         if(hashMap.size==total){
             hookUtils.writeData("adaptation",code.toString())
