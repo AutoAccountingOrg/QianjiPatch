@@ -8,16 +8,22 @@ import org.jf.dexlib2.iface.DexFile
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 
+
 object Dex {
 
     fun findClazz( path: String,  classLoader: ClassLoader,  rules: List<Clazz>): HashMap<String, String> {
         val  dexFile: DexFile = DexFileFactory.loadDexFile(path, null)
         val results = HashMap<String, String>()
         for (classDef in dexFile.classes) {
+            if(results.size == rules.size){
+                //所有需要查找的元素全部找到
+                break
+            }
             var className = classDef.type
             className = className.substring(1, className.length - 1).replace('/', '.')
           //  println(className)
             rules.forEach { itClazz ->
+                if (results.containsKey(itClazz.name))return@forEach
                 //判断包名规则有要求吗？有要求就使用正则匹配
                 val condition1 = if (itClazz.nameRule.isNotEmpty()) {
                     Regex(itClazz.nameRule).matches(className)
@@ -40,6 +46,18 @@ object Dex {
                         }
                     }else{
                         true
+                    }
+
+                    if(clazz.isEnum && condition4){
+                       val result =  itClazz.fields.map { field ->
+                            clazz.enumConstants.any { enumConstant ->
+                                (enumConstant as Enum<*>).name == field.name
+                            }
+                        }.all { it }
+                        if(result){
+                            results[itClazz.name] = className
+                            return@forEach
+                        }
                     }
 
                     if(condition4){
