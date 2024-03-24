@@ -35,6 +35,7 @@ object Dex {
                         when(itClazz.type){
                             "interface" -> clazz.isInterface
                             "abstract" -> Modifier.isAbstract(clazz.modifiers)
+                            "enum" -> clazz.isEnum
                             else -> true
                         }
                     }else{
@@ -78,7 +79,6 @@ object Dex {
         val fields: Array<Field> = clazz.declaredFields
         for (f in fields) {
             f.isAccessible = true
-            println(f.type.name)
             if (f.type.name == field.type) {
                 return field.name
             }
