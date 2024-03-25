@@ -48,7 +48,7 @@ object Dex {
                         true
                     }
 
-                    if(clazz.isEnum && condition4){
+                    if(itClazz.type=="enum" && clazz.isEnum && condition4){
                        val result =  itClazz.fields.map { field ->
                             clazz.enumConstants.any { enumConstant ->
                                 (enumConstant as Enum<*>).name == field.name
