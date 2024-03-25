@@ -347,6 +347,9 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         val assets = arrayListOf<AssetsModel>()
         val expendBills = arrayListOf<BillModel>()
         val incomeBills = arrayListOf<BillModel>()
+
+        //////TODO 这里的设计好像有问题！！！！
+
         accounts.forEach {
             val asset = it!!
             val model = AssetsModel()
