@@ -345,31 +345,62 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
             getAssetsList()
         }
         val assets = arrayListOf<AssetsModel>()
+        val expendBills = arrayListOf<BillModel>()
+        val incomeBills = arrayListOf<BillModel>()
         accounts.forEach {
             val asset = it!!
             val model = AssetsModel()
-            XposedBridge.log("账户信息:${Gson().toJson(asset)}")
+                //XposedBridge.log("账户信息:${Gson().toJson(asset)}")
             val fields = asset::class.java.declaredFields
-            var sync = true
-            for (field in fields) {
-                field.isAccessible = true
-                val value = field.get(asset)
-                when (field.name) {
-                    "name" -> model.name = value as String
-                    "icon" -> model.icon = value as String
-                    "sort" -> model.sort = value as Int
-                    "type" -> {
-                        // = 5 是债权人
-                        sync = value as Int != 5
 
+           val typeField =  fields.filter { field -> field.name == "stype" }.getOrNull(0)
+
+            if(typeField== null)return@forEach
+            typeField.isAccessible = true
+            val type = typeField.get(asset) as Int
+
+            if(type == 52 || type == 51){
+                val billModel = BillModel()
+                billModel.type = if(type == 52) BillType.ExpendLending.value else BillType.IncomeLending.value
+                billModel.amount = 0.0
+                billModel.remark = ""
+                for (field in fields) {
+                    field.isAccessible = true
+                    val value = field.get(asset)
+                    when (field.name) {
+                        "name" -> billModel.accountFrom = value as String
+                        "loanInfo" -> billModel.remark = value as String
+                        "sort" -> model.sort = value as Int
                     }
                 }
+                if(type == 52){
+                    expendBills.add(billModel)
+                }else{
+                    incomeBills.add(billModel)
+
+                }
+
+            }else{
+                for (field in fields) {
+                    field.isAccessible = true
+                    val value = field.get(asset)
+                    when (field.name) {
+                        "name" -> model.name = value as String
+                        "icon" -> model.icon = value as String
+                        "sort" -> model.sort = value as Int
+                    }
+                }
+                assets.add(model)
             }
-            if (sync) assets.add(model)
+
+
         }
         XposedBridge.log("同步账户信息:${Gson().toJson(assets)}")
         AutoAccounting.setAssets(context, Gson().toJson(assets))
+        AutoAccounting.setBills(context, Gson().toJson(expendBills),BillType.ExpendLending.name )
+        AutoAccounting.setBills(context, Gson().toJson(incomeBills),BillType.IncomeLending.name )
     }
+
 
     suspend fun billsFromQianJi() = withContext(Dispatchers.IO) {
         val books = XposedHelpers.callMethod(bookManager, "getAllBooks", true, 1) as List<*>
@@ -418,7 +449,13 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         val bx = Gson().toJson(convertBills(bxList,books))
         XposedBridge.log("同步报销账单:${bx}")
         AutoAccounting.setBills(context,bx,BillType.ExpendReimbursement.name )
+
+        //债务不需要账单
     }
+
+    /**
+     * 转换为自动记账需要的账单
+     */
 
     private suspend fun convertBills(anyBills: List<*>,books:List<*>):List<BillModel>{
         val bills = arrayListOf<BillModel>()
