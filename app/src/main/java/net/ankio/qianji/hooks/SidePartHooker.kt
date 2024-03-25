@@ -55,7 +55,7 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                 hookMenu(activity,classLoader)
                 hooker.syncUtils.init()
                 val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
-                XposedBridge.log("isAutoAccounting:$isAutoAccounting")
+                XposedBridge.log("$clazz onCreate  => isAutoAccounting ? $isAutoAccounting")
                 if(isAutoAccounting == "true"){
                     hooker.scope.launch {
                         runCatching {
@@ -127,7 +127,7 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                 val activity = param!!.thisObject as Activity
                 //如果自动记账功能打开，从自动记账同步账单
                 val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
-                XposedBridge.log("isAutoAccounting:$isAutoAccounting")
+                XposedBridge.log("$clazz onResume => isAutoAccounting ? $isAutoAccounting")
                 if(isAutoAccounting == "true"){
                     hooker.scope.launch {
                         syncBillsFromAutoAccounting(activity)
@@ -150,6 +150,8 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
            //同步账单【债务、报销】
            // 从自动记账同步需要记录的账单
            hooker.syncUtils.assets()
+           //同步账单
+           hooker.syncUtils.billsFromQianJi()
        }
 
     }
@@ -275,6 +277,8 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
                            }
                        }
                    }
+                }else{
+                    hooker.hookUtils.writeData("isAutoAccounting","false")
                 }
             }
 

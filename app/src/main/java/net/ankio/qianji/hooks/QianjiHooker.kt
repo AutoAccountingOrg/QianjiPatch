@@ -24,9 +24,11 @@ class QianjiHooker: Hooker(){
     )
 
     override var clazz: HashMap<String, String> = hashMapOf(
-        "BookManager" to "",
-        "onGetCategoryList" to "",
-        "onGetAssetsFromApi" to ""
+        "BookManager" to "",//账本管理类
+        "onGetCategoryList" to "",//获取分类的接口
+        "onGetAssetsFromApi" to "",//获取资产的接口
+        "onGetBaoXiaoList" to "",//获取报销账单的接口
+        "filterEnum" to "",//过滤器枚举
     )
 
     private val clazzRule = mutableListOf(
@@ -37,7 +39,12 @@ class QianjiHooker: Hooker(){
            methods = listOf(
                ClazzMethod(
                    name = "isFakeDefaultBook",
-                   returnType = "boolean"
+                   returnType = "boolean",
+                   parameters = listOf(
+                       ClazzField(
+                           type = "com.mutangtech.qianji.data.model.Book"
+                       )
+                   )
                ),
                ClazzMethod(
                    name = "getAllBooks",
@@ -105,7 +112,48 @@ class QianjiHooker: Hooker(){
                 ),
 
             )
-        )
+        ),
+        Clazz(
+            type = "interface",
+            name = "onGetBaoXiaoList",
+            nameRule = "^\\w{0,2}\\..+",
+            methods = listOf(
+                ClazzMethod(
+                    name = "onGetList",
+                    returnType = "void",
+                    parameters = listOf(
+                        ClazzField(
+                            type = "java.util.List"
+                        ),
+                    )
+                ),
+                ClazzMethod(
+                    name = "onBaoXiaoFinished",
+                    returnType = "void",
+                    parameters = listOf(
+                        ClazzField(
+                            type = "boolean"
+                        )
+                    )
+                )
+            )
+        ),
+        Clazz(
+            type = "enum",
+            name = "filterEnum",
+            nameRule = "^\\w{0,2}\\..+",
+           fields = arrayListOf(
+               ClazzField(
+                   name = "ALL",
+               ),
+               ClazzField(
+                   name = "HAS",
+               ),
+               ClazzField(
+                   name = "NOT",
+               ),
+           )
+        ),
     )
     override fun hookLoadPackage(classLoader: ClassLoader?, context: Context?):Boolean {
         val code = hookUtils.getVersionCode()
