@@ -2,6 +2,7 @@ package net.ankio.qianji.utils
 
 import android.content.Context
 import com.google.gson.Gson
+import de.robv.android.xposed.XposedBridge
 import kotlinx.coroutines.launch
 import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.common.config.AccountingConfig
@@ -22,9 +23,13 @@ class ConfigSyncUtils(val context: Context,val hooker: Hooker) {
    }
 
     private suspend fun saveAndSync(){
-        val  configText = Gson().toJson(config)
-        hooker.hookUtils.writeData("config",configText)
-        AutoAccounting.setConfig(context,configText)
+       runCatching {
+           val  configText = Gson().toJson(config)
+           hooker.hookUtils.writeData("config",configText)
+           AutoAccounting.setConfig(context,configText)
+       }.onFailure {
+           XposedBridge.log(it)
+       }
     }
 
     fun setAssetManagement(boolean: Boolean){

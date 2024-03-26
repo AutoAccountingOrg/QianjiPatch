@@ -11,7 +11,6 @@ import java.lang.reflect.Modifier
 class HookUtils(private val mContext: Context) {
     private val TAG = "QianjiPatch"
 
-
     fun getVersionCode(): Int {
         return kotlin.runCatching {
             mContext.packageManager.getPackageInfo(mContext.packageName, 0).versionCode
@@ -52,16 +51,4 @@ class HookUtils(private val mContext: Context) {
     }
 
 
-    private fun getKey(key:String = ""): String {
-        return "${ getVersionCode()}_${key}"
-    }
-
-
-    fun getValue(key:String = ""):String{
-        return readData(getKey(key))
-    }
-
-    fun setValue(key:String = "",value:String){
-        writeData(getKey(key),value)
-    }
 }

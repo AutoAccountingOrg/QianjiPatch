@@ -49,7 +49,6 @@ import net.ankio.qianji.utils.HookUtils
 import net.ankio.qianji.utils.SyncUtils
 
 abstract class Hooker : iHooker {
-    lateinit var syncUtils: SyncUtils
     abstract var partHookers: MutableList<PartHooker>
     lateinit var hookUtils : HookUtils
     lateinit var configSyncUtils: ConfigSyncUtils
@@ -101,7 +100,6 @@ abstract class Hooker : iHooker {
         job = Job()
         scope = CoroutineScope(Dispatchers.IO + job)
         configSyncUtils = ConfigSyncUtils(application,this)
-        syncUtils = SyncUtils(application, classLoader,this)
 
         if(hookLoadPackage(classLoader,application)){
             Log.i(HookMainApp.getTag(appName,packPageName),"欢迎使用钱迹补丁，该日志表示 $appName App 已被hook。")

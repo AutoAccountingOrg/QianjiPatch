@@ -1,14 +1,21 @@
 package net.ankio.qianji.utils
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import com.google.gson.Gson
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.ankio.auto.sdk.AutoAccounting
+import net.ankio.auto.sdk.exception.AutoAccountingException
 import net.ankio.common.constant.AssetType
 import net.ankio.common.constant.BillType
+import net.ankio.common.constant.Currency
 import net.ankio.common.model.AssetsModel
 import net.ankio.common.model.BillModel
 import net.ankio.common.model.BookModel
@@ -75,6 +82,9 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         keywordFilter = classLoader.loadClass("com.mutangtech.qianji.filter.filters.KeywordFilter")
     }
 
+    /**
+     * 获取分类列表
+     */
     private suspend fun getCategoryList(bookId: Long): HashMap<String, Any> =
         suspendCoroutine { continuation ->
 
@@ -100,6 +110,9 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
 
         }
 
+    /**
+     * 获取资产列表
+     */
     private suspend fun getAssetsList(): List<*> = suspendCoroutine { continuation ->
 
         val handler = InvocationHandler { _, method, args ->
@@ -132,6 +145,9 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
 
     }
 
+    /**
+     * 获取报销账单列表
+     */
     private suspend fun getBaoXiaoList(): List<*> = suspendCoroutine { continuation ->
 
         val handler = InvocationHandler { _, method, args ->
@@ -158,7 +174,10 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
 
     }
 
-
+    /**
+     * 将钱迹的账本同步给自动记账
+     * @throws AutoAccountingException
+     */
     suspend fun books() = withContext(Dispatchers.IO) {
         val list = XposedHelpers.callMethod(bookManager, "getAllBooks", true, 1) as List<*>
         val bookList = arrayListOf<BookModel>()
@@ -227,7 +246,9 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         AutoAccounting.setBooks(context, Gson().toJson(bookList))
     }
 
-
+    /**
+     * 将分类转为自动记账的分类模型
+     */
     private fun convertCategoryToModel(list: List<*>, type: BillType): ArrayList<CategoryModel> {
         val categories = arrayListOf<CategoryModel>()
         list.forEach {
@@ -337,8 +358,11 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         return categories
     }
 
-
-    suspend fun assets() {
+    /**
+     * 将钱迹的资产同步给自动记账
+     * @throws AutoAccountingException
+     */
+    suspend fun assets() = withContext(Dispatchers.IO) {
         val accounts = withContext(Dispatchers.Main) {
             getAssetsList()
         }
@@ -399,7 +423,9 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
                     "name" -> model.name = value as String
                     "icon" -> model.icon = value as String
                     "sort" -> model.sort = value as Int
+                    "currency" -> model.currency = Currency.valueOf(value as String)
                     "loanInfo" -> model.extra = Gson().toJson(value)
+
                     "extra" -> {
                         if(model.extra.isEmpty()||model.extra == "{}")
                         model.extra = Gson().toJson(value)
@@ -413,7 +439,10 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         AutoAccounting.setAssets(context, Gson().toJson(assets))
     }
 
-
+    /**
+     * 将钱迹的账单同步给自动记账
+     * @throws AutoAccountingException
+     */
     suspend fun billsFromQianJi() = withContext(Dispatchers.IO) {
         val books = XposedHelpers.callMethod(bookManager, "getAllBooks", true, 1) as List<*>
 
@@ -462,13 +491,14 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         XposedBridge.log("同步报销账单:${bx}")
         AutoAccounting.setBills(context,bx,BillType.ExpendReimbursement.name )
 
-        //债务不需要账单
+
     }
+
+
 
     /**
      * 转换为自动记账需要的账单
      */
-
     private suspend fun convertBills(anyBills: List<*>,books:List<*>):List<BillModel>{
         val bills = arrayListOf<BillModel>()
         anyBills.forEach {

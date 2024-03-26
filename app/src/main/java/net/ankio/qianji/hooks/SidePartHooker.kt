@@ -30,6 +30,7 @@ import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
+import net.ankio.qianji.utils.SyncUtils
 
 
 class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
@@ -43,6 +44,9 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
 
 
     }
+
+
+    private lateinit var syncUtils: SyncUtils
 
 
     private fun hookMainActivity(classLoader: ClassLoader, context: Context) {
@@ -62,7 +66,9 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                     //hook菜单
                     hookMenu(activity, classLoader)
                     //初始化同步工具（clazz加载）
-                    hooker.syncUtils.init()
+
+                    syncUtils = SyncUtils(activity,classLoader,hooker)
+                    syncUtils.init()
                     //判断自动记账是否需要加载
                     val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
                     XposedBridge.log("$clazz onCreate  => isAutoAccounting ? $isAutoAccounting")
@@ -125,6 +131,8 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                                         "自动记账授权启动失败",
                                         Toast.LENGTH_SHORT
                                     ).show()
+                                    //又失败了，再走一遍流程
+                                    onAutoAccountingError(it as AutoAccountingException,activity)
                                 }.onSuccess {
                                     if (::autoAccounting.isInitialized) {
                                         withContext(Dispatchers.Main) {
@@ -201,23 +209,84 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                 }
             })
     }
+    private suspend fun onAutoAccountingError(it:AutoAccountingException, context: Activity) = withContext(Dispatchers.Main){
+        when(it.code){
+            AutoAccountingException.CODE_SERVER_AUTHORIZE->{
+                XposedBridge.log("自动记账授权失败:${it.message}")
+                //前往自动记账授权
+                val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
+                //设置包名，用于自动记账对目标app进行检查
+                intent.putExtra("packageName", hooker.packPageName)
+                try {
+                    context.startActivityForResult(intent,codeAuth)
+                }catch (e: ActivityNotFoundException){
+                    //没有自动记账，需要引导用户下载自动记账App
+                    XposedBridge.log(e)
+                    onGetAutoApplication(context)
+                }
+            }
+            AutoAccountingException.CODE_SERVER_UN_INIT->{
+                XposedBridge.log("自动记账未初始化:${it.message}")
+                it.printStackTrace()
+            }
+            AutoAccountingException.CODE_SERVER_ERROR->{
+                XposedBridge.log("自动记账服务未启动:${it.message}")
+                var findAuto = false
+                arrayOf(
+                    "xposed",
+                    "help"
+                ).forEach {
+                    if(findAuto)return@forEach
+                    val packageName = "net.ankio.auto.$it" // 替换为目标应用的包名
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+                    if (launchIntent != null) {
+                        context.startActivity(launchIntent)
+                        findAuto = true
+                    }
+                }
+                if(!findAuto){
+                    onGetAutoApplication(context)
+                }
 
+            }
+        }
+    }
+
+    private suspend fun onGetAutoApplication(context:Activity) = withContext(Dispatchers.Main){
+        Toast.makeText(context,"未找到自动记账，请从Github下载自动记账App", Toast.LENGTH_SHORT).show()
+        // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
+        val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
+        val intentAuto = Intent(Intent.ACTION_VIEW)
+        intentAuto.data = Uri.parse(url)
+        try {
+            context.startActivity(intentAuto)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(context, "没有安装任何支持的浏览器客户端", Toast.LENGTH_SHORT).show()
+        }
+    }
     private suspend fun syncBillsFromAutoAccounting(activity: Activity) = withContext(Dispatchers.IO){
        hooker.scope.launch {
-           //账本等信息优先同步
-           hooker.syncUtils.books()
-           // 同步资产
-           hooker.syncUtils.assets()
-           //同步账单
-           hooker.syncUtils.billsFromQianJi()
-           //从自动记账同步账单
-           //TODO
+          runCatching {
+              //账本等信息优先同步
+              syncUtils.books()
+              // 同步资产
+              syncUtils.assets()
+              //同步账单
+              syncUtils.billsFromQianJi()
+              //从自动记账同步账单
+              //TODO
+          }.onFailure {
+              if (it is AutoAccountingException){
+                  onAutoAccountingError(it,activity)
+              }
+          }
        }
 
     }
 
     /**
      * 尝试启动自动记账服务
+     * @throws AutoAccountingException
      */
     private suspend fun tryStartAutoAccounting(activity: Activity) = withContext(Dispatchers.IO) {
         AutoAccounting.init(
