@@ -400,6 +400,10 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
                     "icon" -> model.icon = value as String
                     "sort" -> model.sort = value as Int
                     "loanInfo" -> model.extra = Gson().toJson(value)
+                    "extra" -> {
+                        if(model.extra.isEmpty()||model.extra == "{}")
+                        model.extra = Gson().toJson(value)
+                    }
                 }
             }
             assets.add(model)
