@@ -8,10 +8,17 @@ import net.ankio.common.config.AccountingConfig
 import net.ankio.qianji.api.Hooker
 
 class ConfigSyncUtils(val context: Context,val hooker: Hooker) {
-    var config = runCatching {
+    var config: AccountingConfig = runCatching {
        Gson().fromJson(hooker.hookUtils.readData("config"),AccountingConfig::class.java)
    }.getOrElse {
-       AccountingConfig()
+       AccountingConfig(
+              assetManagement = true,
+              multiCurrency = true,
+              reimbursement = true,
+              lending = true,
+              multiBooks = true,
+              fee = true
+       )
    }
 
     private suspend fun saveAndSync(){

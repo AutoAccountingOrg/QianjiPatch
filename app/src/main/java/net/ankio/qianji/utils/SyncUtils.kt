@@ -1,15 +1,13 @@
 package net.ankio.qianji.utils
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import com.google.gson.Gson
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import net.ankio.auto.sdk.AutoAccounting
+import net.ankio.common.constant.AssetType
 import net.ankio.common.constant.BillType
 import net.ankio.common.model.AssetsModel
 import net.ankio.common.model.BillModel
@@ -18,7 +16,6 @@ import net.ankio.common.model.CategoryModel
 import net.ankio.qianji.api.Hooker
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
-import java.lang.reflect.Type
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -231,9 +228,10 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
     }
 
 
-    private fun convertCategoryToModel(list: List<Any>, type: BillType): ArrayList<CategoryModel> {
+    private fun convertCategoryToModel(list: List<*>, type: BillType): ArrayList<CategoryModel> {
         val categories = arrayListOf<CategoryModel>()
         list.forEach {
+            if (it == null) return@forEach
             val category = it
             val model = CategoryModel(
                 type = type.value
@@ -326,7 +324,7 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
                     "sort" -> model.sort = value as Int
                     "subList" -> {
                         if (value != null) {
-                            val subList = value as List<Any>
+                            val subList = value as List<*>
                             //    XposedBridge.log("子分类:${Gson().toJson(subList)}")
                             categories.addAll(convertCategoryToModel(subList, type))
                         }
@@ -345,10 +343,8 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
             getAssetsList()
         }
         val assets = arrayListOf<AssetsModel>()
-        val expendBills = arrayListOf<BillModel>()
-        val incomeBills = arrayListOf<BillModel>()
 
-        //////TODO 这里的设计好像有问题！！！！
+
 
         accounts.forEach {
             val asset = it!!
@@ -356,52 +352,61 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
                 //XposedBridge.log("账户信息:${Gson().toJson(asset)}")
             val fields = asset::class.java.declaredFields
 
-           val typeField =  fields.filter { field -> field.name == "stype" }.getOrNull(0)
+            val stypeField = fields.filter { field -> field.name == "stype" }.getOrNull(0)
+            val typeField = fields.filter { field -> field.name == "type" }.getOrNull(0)
+            if (typeField == null || stypeField == null) return@forEach
+            stypeField.isAccessible = true
+            val stype = stypeField.get(asset) as Int
 
-            if(typeField== null)return@forEach
             typeField.isAccessible = true
             val type = typeField.get(asset) as Int
 
-            if(type == 52 || type == 51){
-                val billModel = BillModel()
-                billModel.type = if(type == 52) BillType.ExpendLending.value else BillType.IncomeLending.value
-                billModel.amount = 0.0
-                billModel.remark = ""
-                for (field in fields) {
-                    field.isAccessible = true
-                    val value = field.get(asset)
-                    when (field.name) {
-                        "name" -> billModel.accountFrom = value as String
-                        "loanInfo" -> billModel.remark = value as String
-                        "sort" -> model.sort = value as Int
-                    }
-                }
-                if(type == 52){
-                    expendBills.add(billModel)
-                }else{
-                    incomeBills.add(billModel)
+            //    public static final int SType_Debt = 51;
+            //    public static final int SType_Debt_Wrapper = 61;
+            //    public static final int SType_HuaBei = 22;
+            //    public static final int SType_Loan = 52;
+            //    public static final int SType_Loan_Wrapper = 62;
+            //    public static final int SType_Money_Alipay = 13;
+            //    public static final int SType_Money_Card = 12;
+            //    public static final int SType_Money_WeiXin = 14;
+            //    public static final int SType_Money_YEB = 103;
 
+
+            //    public static final int Type_Credit = 2;
+            //    public static final int Type_DebtLoan = 5;
+            //    public static final int Type_DebtLoan_Wrapper = 6;
+            //    public static final int Type_Invest = 4;
+            //    public static final int Type_Money = 1;
+            //    public static final int Type_Recharge = 3;
+            model.type = when (type) {
+                1 -> AssetType.CASH
+                2 -> AssetType.CREDIT
+                3 -> AssetType.RECHARGE
+                4 -> AssetType.INVEST
+                5 -> when (stype) {
+                    51 -> AssetType.DEBT_EXPAND
+                    else -> AssetType.DEBT_INCOME
                 }
 
-            }else{
-                for (field in fields) {
-                    field.isAccessible = true
-                    val value = field.get(asset)
-                    when (field.name) {
-                        "name" -> model.name = value as String
-                        "icon" -> model.icon = value as String
-                        "sort" -> model.sort = value as Int
-                    }
-                }
-                assets.add(model)
+                else -> AssetType.APP
             }
 
+
+            for (field in fields) {
+                field.isAccessible = true
+                val value = field.get(asset) ?: continue
+                when (field.name) {
+                    "name" -> model.name = value as String
+                    "icon" -> model.icon = value as String
+                    "sort" -> model.sort = value as Int
+                    "loanInfo" -> model.extra = Gson().toJson(value)
+                }
+            }
+            assets.add(model)
 
         }
         XposedBridge.log("同步账户信息:${Gson().toJson(assets)}")
         AutoAccounting.setAssets(context, Gson().toJson(assets))
-        AutoAccounting.setBills(context, Gson().toJson(expendBills),BillType.ExpendLending.name )
-        AutoAccounting.setBills(context, Gson().toJson(incomeBills),BillType.IncomeLending.name )
     }
 
 
@@ -464,7 +469,7 @@ class SyncUtils(val context: Context,val classLoader: ClassLoader, private val h
         val bills = arrayListOf<BillModel>()
         anyBills.forEach {
             val bill = BillModel()
-            bill.type = BillType.ExpendReimbursement.value
+            bill.type = BillType.ExpendReimbursement
             val fields = billClazz.declaredFields
             for (field in fields) {
                 field.isAccessible = true

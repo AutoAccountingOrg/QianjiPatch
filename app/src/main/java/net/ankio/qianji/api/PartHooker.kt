@@ -22,8 +22,7 @@ import net.ankio.qianji.HookMainApp
 abstract class PartHooker(val hooker: Hooker) {
     abstract  val hookName: String
 
-
-    abstract fun onInit(classLoader: ClassLoader?,context: Context?)
+    abstract fun onInit(classLoader: ClassLoader,context: Context)
 
     /**
      * 正常输出日志

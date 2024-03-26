@@ -20,7 +20,7 @@ class QianjiHooker: Hooker(){
     override val appName: String = "钱迹"
     override var partHookers: MutableList<PartHooker> = arrayListOf(
         SidePartHooker(this),
-        BookHooker(this)
+       //因为onresume万金油的关系所以同步很容易发生
     )
 
     override var clazz: HashMap<String, String> = hashMapOf(
@@ -155,7 +155,7 @@ class QianjiHooker: Hooker(){
            )
         ),
     )
-    override fun hookLoadPackage(classLoader: ClassLoader?, context: Context?):Boolean {
+    override fun hookLoadPackage(classLoader: ClassLoader, context: Context):Boolean {
         val code = hookUtils.getVersionCode()
         val adaptationVersion  = hookUtils.readData("adaptation").toIntOrNull() ?: 0
         if(adaptationVersion == code){
@@ -174,7 +174,7 @@ class QianjiHooker: Hooker(){
         }
         hookUtils.toast("钱迹补丁开始适配中...")
         val total = clazzRule.size
-        val hashMap = Dex.findClazz(context!!.packageResourcePath, classLoader!!, clazzRule)
+        val hashMap = Dex.findClazz(context.packageResourcePath, classLoader!!, clazzRule)
         if(hashMap.size==total){
             hookUtils.writeData("adaptation",code.toString())
             clazz = hashMap

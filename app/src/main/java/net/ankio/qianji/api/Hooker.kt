@@ -121,7 +121,7 @@ abstract class Hooker : iHooker {
     }
 
     @Throws(ClassNotFoundException::class)
-    abstract fun hookLoadPackage(classLoader: ClassLoader?,context: Context?):Boolean
+    abstract fun hookLoadPackage(classLoader: ClassLoader,context: Context):Boolean
     override fun onLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam?) {
         val pkg = lpparam?.packageName
         val processName = lpparam?.processName

@@ -37,126 +37,188 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
 
     private val codeAuth = 52045001
 
-    override fun onInit(classLoader: ClassLoader?, context: Context?) {
-        if(classLoader == null) return
 
+    override fun onInit(classLoader: ClassLoader, context: Context) {
+        hookMainActivity(classLoader, context)
+
+
+    }
+
+
+    private fun hookMainActivity(classLoader: ClassLoader, context: Context) {
         val clazz = classLoader.loadClass("com.mutangtech.qianji.ui.main.MainActivity")
-        XposedHelpers.findAndHookMethod(clazz, "onCreate", android.os.Bundle::class.java, object : XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam?) {
-                super.beforeHookedMethod(param)
-
-            }
-            override fun afterHookedMethod(param: MethodHookParam?) {
-                super.afterHookedMethod(param)
-                val activity = param!!.thisObject as Activity
-                /**
-                 * activity as  ComponentActivity
-                 */
-                hookMenu(activity,classLoader)
-                hooker.syncUtils.init()
-                val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
-                XposedBridge.log("$clazz onCreate  => isAutoAccounting ? $isAutoAccounting")
-                if(isAutoAccounting == "true"){
-                    hooker.scope.launch {
-                        runCatching {
-                            tryStartAutoAccounting(activity)
-                        }.onFailure {
-                            XposedBridge.log(it)
-                        }
-                    }
-                }
-
-            }
-        })
-
-
-        XposedHelpers.findAndHookMethod("androidx.activity.ComponentActivity",classLoader, "onActivityResult",Int::class.javaPrimitiveType,Int::class.javaPrimitiveType,Intent::class.java, object : XC_MethodHook() {
-            override fun afterHookedMethod(param: MethodHookParam?) {
-                super.afterHookedMethod(param)
-                val activity = param!!.thisObject as Activity
-                /**
-                 * activity as  ComponentActivity
-                 */
-                XposedBridge.log("onActivityResult")
-                val requestCode = param.args[0] as Int
-                val resultCode = param.args[1] as Int
-                val intent = param.args[2] as Intent
-                XposedBridge.log("requestCode:$requestCode,resultCode:$resultCode,intent:$intent")
-                if(requestCode == codeAuth){
-                    if(resultCode != Activity.RESULT_OK) {
-                        Toast.makeText(activity, "授权失败", Toast.LENGTH_SHORT).show()
-                        return
-                    }
-                    val resultData = intent.getStringExtra("token")
-                    //调用自动记账存储
-                    try {
-                        AutoAccounting.setToken(activity, resultData)
-                        //授权成功尝试重启
+        //主Activity创建的时候，执行自动记账加载hook流程
+        XposedHelpers.findAndHookMethod(
+            clazz,
+            "onCreate",
+            android.os.Bundle::class.java,
+            object : XC_MethodHook() {
+                override fun afterHookedMethod(param: MethodHookParam?) {
+                    super.afterHookedMethod(param)
+                    val activity = param!!.thisObject as Activity
+                    /**
+                     * activity as  ComponentActivity
+                     */
+                    //hook菜单
+                    hookMenu(activity, classLoader)
+                    //初始化同步工具（clazz加载）
+                    hooker.syncUtils.init()
+                    //判断自动记账是否需要加载
+                    val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
+                    XposedBridge.log("$clazz onCreate  => isAutoAccounting ? $isAutoAccounting")
+                    if (isAutoAccounting == "true") {
                         hooker.scope.launch {
                             runCatching {
                                 tryStartAutoAccounting(activity)
                             }.onFailure {
                                 XposedBridge.log(it)
-                            }.onSuccess {
-                                if (::autoAccounting.isInitialized){
-                                   withContext(Dispatchers.Main){
-                                       autoAccounting.isChecked = true
-                                   }
-                                }
-                                hooker.hookUtils.writeData("isAutoAccounting","true")
-                                syncBillsFromAutoAccounting(activity)
                             }
                         }
-
-                    }catch (e:AutoAccountingException){
-                        e.printStackTrace()
-                        Toast.makeText(activity,"数据为空，可能是因为自动记账服务未启动",Toast.LENGTH_SHORT).show()
                     }
 
                 }
+            })
+
+        //这是自动记账授权响应
+
+        XposedHelpers.findAndHookMethod(
+            "androidx.activity.ComponentActivity",
+            classLoader,
+            "onActivityResult",
+            Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType,
+            Intent::class.java,
+            object : XC_MethodHook() {
+                override fun afterHookedMethod(param: MethodHookParam?) {
+                    super.afterHookedMethod(param)
+                    val activity = param!!.thisObject as Activity
+                    /**
+                     * activity as  ComponentActivity
+                     */
+                    XposedBridge.log("onActivityResult")
+                    val requestCode = param.args[0] as Int
+                    val resultCode = param.args[1] as Int
+                    val intent = param.args[2] as Intent
+
+                    if (requestCode == codeAuth) {
+                        if (resultCode != Activity.RESULT_OK) {
+                            Toast.makeText(activity, "授权失败", Toast.LENGTH_SHORT).show()
+                            return
+                        }
+                        val resultData = intent.getStringExtra("token")
+                        //调用自动记账存储
+                        try {
+                            AutoAccounting.setToken(activity, resultData)
+                            //授权成功尝试重启
+                            hooker.scope.launch {
+                                runCatching {
+                                    tryStartAutoAccounting(activity)
+                                }.onFailure {
+                                    XposedBridge.log(it)
+                                    if (::autoAccounting.isInitialized) {
+                                        withContext(Dispatchers.Main) {
+                                            autoAccounting.isChecked = false
+                                        }
+                                    }
+                                    Toast.makeText(
+                                        activity,
+                                        "自动记账授权启动失败",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }.onSuccess {
+                                    if (::autoAccounting.isInitialized) {
+                                        withContext(Dispatchers.Main) {
+                                            autoAccounting.isChecked = true
+                                        }
+                                    }
+                                    hooker.hookUtils.writeData("isAutoAccounting", "true")
+                                    syncBillsFromAutoAccounting(activity)
+                                }
+                            }
+
+                        } catch (e: AutoAccountingException) {
+                            e.printStackTrace()
+                            Toast.makeText(
+                                activity,
+                                "数据为空，可能是因为自动记账服务未启动",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+
+                    }
 
 
-
-            }
-        })
-
-
-        XposedHelpers.findAndHookMethod(clazz, "onResume",  object : XC_MethodHook() {
+                }
+            })
+        //这里是为了执行数据同步
+        XposedHelpers.findAndHookMethod(clazz, "onResume", object : XC_MethodHook() {
             override fun afterHookedMethod(param: MethodHookParam?) {
                 super.afterHookedMethod(param)
                 val activity = param!!.thisObject as Activity
                 //如果自动记账功能打开，从自动记账同步账单
                 val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
                 XposedBridge.log("$clazz onResume => isAutoAccounting ? $isAutoAccounting")
-                if(isAutoAccounting == "true"){
+                if (isAutoAccounting == "true") {
                     hooker.scope.launch {
                         syncBillsFromAutoAccounting(activity)
                     }
                 }
             }
         })
-
-
-
-
     }
 
+    private fun hookMenu(activity: Activity, classLoader: ClassLoader?) {
+        var hooked = false
+        val clazz = classLoader!!.loadClass("com.mutangtech.qianji.ui.maindrawer.MainDrawerLayout")
+        XposedHelpers.findAndHookMethod(
+            clazz,
+            "refreshAccount",
+            object : XC_MethodHook() {
+                override fun afterHookedMethod(param: MethodHookParam?) {
+                    super.afterHookedMethod(param)
+                    //只hook一次
+                    val obj = param!!.thisObject as FrameLayout
 
+                    setVipName(obj, classLoader)
+
+                    if (hooked) return
+                    hooked = true
+
+                    // 调用 findViewById 并转换为 TextView
+                    val linearLayout =
+                        getViewById(obj, classLoader, "main_drawer_content_layout") as LinearLayout
+                    runCatching {
+                        XposedHelpers.callMethod(
+                            activity.resources.assets,
+                            "addAssetPath",
+                            HookMainApp.modulePath
+                        )
+                        //找到了obj里面的name字段
+                        addSettingMenu(linearLayout, activity, classLoader)
+                    }.onFailure {
+                        XposedBridge.log(it)
+                    }
+                }
+            })
+    }
 
     private suspend fun syncBillsFromAutoAccounting(activity: Activity) = withContext(Dispatchers.IO){
        hooker.scope.launch {
            //账本等信息优先同步
            hooker.syncUtils.books()
-           //同步账单【债务、报销】
-           // 从自动记账同步需要记录的账单
+           // 同步资产
            hooker.syncUtils.assets()
            //同步账单
            hooker.syncUtils.billsFromQianJi()
+           //从自动记账同步账单
+           //TODO
        }
 
     }
 
-
+    /**
+     * 尝试启动自动记账服务
+     */
     private suspend fun tryStartAutoAccounting(activity: Activity) = withContext(Dispatchers.IO) {
         AutoAccounting.init(
             activity,
@@ -165,52 +227,25 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
 
     }
 
-private fun setVipName(obj: FrameLayout,classLoader: ClassLoader?){
-    val vipName = hooker.hookUtils.readData("vipName")
-    if(vipName!==""){
-        // 调用 findViewById 并转换为 TextView
-        val textView = getViewById(obj,classLoader!!,"settings_vip_badge")  as TextView
-        textView.visibility = View.VISIBLE
-        textView.text = vipName
+    /**
+     * 设置Vip名称
+     */
+    private fun setVipName(obj: FrameLayout,classLoader: ClassLoader?){
+        val vipName = hooker.hookUtils.readData("vipName")
+        if(vipName!==""){
+            // 调用 findViewById 并转换为 TextView
+            val textView = getViewById(obj,classLoader!!,"settings_vip_badge")  as TextView
+            textView.visibility = View.VISIBLE
+            textView.text = vipName
+        }
+
     }
-
-}
-
-private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
-        var hooked = false
-    val clazz = classLoader!!.loadClass("com.mutangtech.qianji.ui.maindrawer.MainDrawerLayout")
-        XposedHelpers.findAndHookMethod(
-            clazz,
-            "refreshAccount",
-            object : XC_MethodHook(){
-                override fun afterHookedMethod(param: MethodHookParam?) {
-                    super.afterHookedMethod(param)
-                    //只hook一次
-                    val obj = param!!.thisObject as FrameLayout
-
-                    setVipName(obj,classLoader)
-
-                    if(hooked)return
-                    hooked = true
-
-                    // 调用 findViewById 并转换为 TextView
-                    val linearLayout = getViewById(obj,classLoader,"main_drawer_content_layout") as LinearLayout
-                    runCatching {
-                        XposedHelpers.callMethod(activity.resources.assets, "addAssetPath", HookMainApp.modulePath)
-                        //找到了obj里面的name字段
-                        addSettingMenu(linearLayout , activity,classLoader)
-                    }.onFailure {
-                        XposedBridge.log(it)
-                    }
-                }
-            })
-}
 
 
     private lateinit var autoAccounting: Switch
 
     private lateinit var rClass : Class<*>
-    fun getViewById(obj: FrameLayout,classLoader: ClassLoader, id: String): View {
+    private fun getViewById(obj: FrameLayout,classLoader: ClassLoader, id: String): View {
         if(!::rClass.isInitialized){
             rClass = Class.forName("com.mutangtech.qianji.R\$id", true, classLoader)
         }
@@ -223,7 +258,7 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
         ) as View
     }
 
-    fun addSettingMenu(linearLayout: LinearLayout, context: Activity,classLoader: ClassLoader?){
+    private fun addSettingMenu(linearLayout: LinearLayout, context: Activity,classLoader: ClassLoader?){
         val isDarkMode: Boolean = isDarkMode(context)
         val mainColor = if (isDarkMode) -0x2c2c2d else -0xcacacb
         val subColor = if (isDarkMode) -0x9a9a9b else -0x666667
@@ -311,8 +346,6 @@ private fun hookMenu(activity: Activity,classLoader: ClassLoader?) {
                 .setTitle(context.getString(R.string.app_name))
                 .setView(menuListView)
                 .create()
-
-
 // 显示弹窗
             dialog.show()
 
