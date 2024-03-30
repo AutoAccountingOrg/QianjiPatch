@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'maven-publish'
     alias(libs.plugins.jetbrains.kotlin.jvm)
 }
 
@@ -8,6 +9,24 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId = 'net.ankio.dex'
+            artifactId = 'DexLib'
+            version = "1.0.0"
+
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url = 'file://' + new File(System.getProperty('user.home'), '.m2/repository').absolutePath
+        }
+    }
+}
+
 dependencies {
     implementation libs.dexlib2
 }
+
