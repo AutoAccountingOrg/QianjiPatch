@@ -4,88 +4,117 @@ import net.ankio.dex.model.Clazz
 import net.ankio.dex.model.ClazzField
 import net.ankio.dex.model.ClazzMethod
 import org.jf.dexlib2.DexFileFactory
+import org.jf.dexlib2.dexbacked.DexBackedDexFile
 import org.jf.dexlib2.iface.DexFile
+import java.io.BufferedInputStream
+import java.io.IOException
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
+import java.util.stream.Collectors
+import java.util.zip.ZipFile
 
 
 object Dex {
 
+    fun getAllDexFiles(file:String): List<DexFile> {
+        val dexFiles = mutableListOf<DexBackedDexFile>()
+        ZipFile(file).use { zipFile ->
+            // Iterate over all entries in the ZIP file
+            for (entry in zipFile.entries()) {
+                if (entry.name.endsWith(".dex")) {
+                    // Load the DEX file
+                    val dexFile = DexBackedDexFile.fromInputStream(null,
+                        BufferedInputStream(zipFile.getInputStream(entry))
+                    )
+                    dexFiles.add(dexFile)
+                }
+            }
+        }
+        return dexFiles
+    }
     fun findClazz( path: String,  classLoader: ClassLoader,  rules: List<Clazz>): HashMap<String, String> {
-        val  dexFile: DexFile = DexFileFactory.loadDexFile(path, null)
         val results = HashMap<String, String>()
-        for (classDef in dexFile.classes) {
+        for( dexFile in  getAllDexFiles(path)){
             if(results.size == rules.size){
                 //所有需要查找的元素全部找到
                 break
             }
-            var className = classDef.type
-            className = className.substring(1, className.length - 1).replace('/', '.')
-          //  println(className)
-            rules.forEach { itClazz ->
-                if (results.containsKey(itClazz.name))return@forEach
-                //判断包名规则有要求吗？有要求就使用正则匹配
-                val condition1 = if (itClazz.nameRule.isNotEmpty()) {
-                    Regex(itClazz.nameRule).matches(className)
-                } else {
-                    true
+
+            for (classDef in dexFile.classes) {
+                if(results.size == rules.size){
+                    //所有需要查找的元素全部找到
+                    break
                 }
-
-
-
-
-                if(condition1){
-                    val clazz = classLoader.loadClass(className)
-
-                    val condition4 = if(itClazz.type.isNotEmpty()){
-                        when(itClazz.type){
-                            "interface" -> clazz.isInterface
-                            "abstract" -> Modifier.isAbstract(clazz.modifiers)
-                            "enum" -> clazz.isEnum
-                            else -> true
-                        }
-                    }else{
+                var className = classDef.type
+                className = className.substring(1, className.length - 1).replace('/', '.')
+              //   println("class -> "+className)
+                rules.forEach { itClazz ->
+                    if (results.containsKey(itClazz.name))return@forEach
+                    //判断包名规则有要求吗？有要求就使用正则匹配
+                    val condition1 = if (itClazz.nameRule.isNotEmpty()) {
+                        Regex(itClazz.nameRule).matches(className)
+                    } else {
                         true
                     }
 
-                    if(itClazz.type=="enum" && clazz.isEnum && condition4){
-                       val result =  itClazz.fields.map { field ->
-                            clazz.enumConstants.any { enumConstant ->
-                                (enumConstant as Enum<*>).name == field.name
+
+
+
+                    if(condition1){
+                        val clazz = classLoader.loadClass(className)
+
+                        val condition4 = if(itClazz.type.isNotEmpty()){
+                            when(itClazz.type){
+                                "interface" -> clazz.isInterface
+                                "abstract" -> Modifier.isAbstract(clazz.modifiers)
+                                "enum" -> clazz.isEnum
+                                else -> true
                             }
-                        }.all { it }
-                        if(result){
-                            results[itClazz.name] = className
-                            return@forEach
-                        }
-                    }
-
-                    if(condition4){
-                        val condition2 = if (itClazz.fields.isNotEmpty()) {
-                            //这里应该是判断字段是否存在吧？
-                            itClazz.fields.map { field ->
-                                findFieldIsExist(clazz, field)
-                            }.all { it }
-                        } else {
+                        }else{
                             true
                         }
-                        val condition3 = if (itClazz.methods.isNotEmpty()) {
-                            itClazz.methods.map { method ->
-                                findMethodIsExist(clazz, method)
+
+                        if(itClazz.type=="enum" && clazz.isEnum && condition4){
+                            val result =  itClazz.fields.map { field ->
+                                clazz.enumConstants.any { enumConstant ->
+                                    (enumConstant as Enum<*>).name == field.name
+                                }
                             }.all { it }
-                        } else {
-                            true
+                            if(result){
+                                results[itClazz.name] = className
+                                return@forEach
+                            }
                         }
-                        if (condition2 && condition3) {
-                            results[itClazz.name] = className
+
+                        if(condition4){
+                            val condition2 = if (itClazz.fields.isNotEmpty()) {
+                                //这里应该是判断字段是否存在吧？
+                                itClazz.fields.map { field ->
+                                    findFieldIsExist(clazz, field)
+                                }.all { it }
+                            } else {
+                                true
+                            }
+                            val condition3 = if (itClazz.methods.isNotEmpty()) {
+                                itClazz.methods.map { method ->
+                                    findMethodIsExist(clazz, method)
+                                }.all { it }
+                            } else {
+                                true
+                            }
+                            if (condition2 && condition3) {
+                                results[itClazz.name] = className
+                            }
                         }
+
+
+
                     }
-
-
-
                 }
             }
+
         }
+
         return results
     }
 
