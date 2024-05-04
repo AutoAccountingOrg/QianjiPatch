@@ -1,6 +1,5 @@
 package net.ankio.qianji.hooks
 
-
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
@@ -32,26 +31,26 @@ import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
 import net.ankio.qianji.utils.SyncUtils
 
-
-class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
+class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
     override val hookName: String = "钱迹左侧设置页"
 
     private val codeAuth = 52045001
 
-
-    override fun onInit(classLoader: ClassLoader, context: Context) {
+    override fun onInit(
+        classLoader: ClassLoader,
+        context: Context,
+    ) {
         hookMainActivity(classLoader, context)
-
-
     }
-
 
     private lateinit var syncUtils: SyncUtils
 
-
-    private fun hookMainActivity(classLoader: ClassLoader, context: Context) {
+    private fun hookMainActivity(
+        classLoader: ClassLoader,
+        context: Context,
+    ) {
         val clazz = classLoader.loadClass("com.mutangtech.qianji.ui.main.MainActivity")
-        //主Activity创建的时候，执行自动记账加载hook流程
+        // 主Activity创建的时候，执行自动记账加载hook流程
         XposedHelpers.findAndHookMethod(
             clazz,
             "onCreate",
@@ -63,13 +62,13 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                     /**
                      * activity as  ComponentActivity
                      */
-                    //hook菜单
+                    // hook菜单
                     hookMenu(activity, classLoader)
-                    //初始化同步工具（clazz加载）
+                    // 初始化同步工具（clazz加载）
 
-                    syncUtils = SyncUtils(activity,classLoader,hooker)
+                    syncUtils = SyncUtils(activity, classLoader, hooker)
                     syncUtils.init()
-                    //判断自动记账是否需要加载
+                    // 判断自动记账是否需要加载
                     val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
                     XposedBridge.log("$clazz onCreate  => isAutoAccounting ? $isAutoAccounting")
                     if (isAutoAccounting == "true") {
@@ -81,11 +80,11 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                             }
                         }
                     }
-
                 }
-            })
+            },
+        )
 
-        //这是自动记账授权响应
+        // 这是自动记账授权响应
 
         XposedHelpers.findAndHookMethod(
             "androidx.activity.ComponentActivity",
@@ -112,10 +111,10 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                             return
                         }
                         val resultData = intent.getStringExtra("token")
-                        //调用自动记账存储
+                        // 调用自动记账存储
                         try {
                             AutoAccounting.setToken(activity, resultData)
-                            //授权成功尝试重启
+                            // 授权成功尝试重启
                             hooker.scope.launch {
                                 runCatching {
                                     tryStartAutoAccounting(activity)
@@ -129,10 +128,10 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                                     Toast.makeText(
                                         activity,
                                         "自动记账授权启动失败",
-                                        Toast.LENGTH_SHORT
+                                        Toast.LENGTH_SHORT,
                                     ).show()
-                                    //又失败了，再走一遍流程
-                                    onAutoAccountingError(it as AutoAccountingException,activity)
+                                    // 又失败了，再走一遍流程
+                                    onAutoAccountingError(it as AutoAccountingException, activity)
                                 }.onSuccess {
                                     if (::autoAccounting.isInitialized) {
                                         withContext(Dispatchers.Main) {
@@ -143,39 +142,43 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                                     syncBillsFromAutoAccounting(activity)
                                 }
                             }
-
                         } catch (e: AutoAccountingException) {
                             e.printStackTrace()
                             Toast.makeText(
                                 activity,
                                 "数据为空，可能是因为自动记账服务未启动",
-                                Toast.LENGTH_SHORT
+                                Toast.LENGTH_SHORT,
                             ).show()
                         }
-
-                    }
-
-
-                }
-            })
-        //这里是为了执行数据同步
-        XposedHelpers.findAndHookMethod(clazz, "onResume", object : XC_MethodHook() {
-            override fun afterHookedMethod(param: MethodHookParam?) {
-                super.afterHookedMethod(param)
-                val activity = param!!.thisObject as Activity
-                //如果自动记账功能打开，从自动记账同步账单
-                val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
-                XposedBridge.log("$clazz onResume => isAutoAccounting ? $isAutoAccounting")
-                if (isAutoAccounting == "true") {
-                    hooker.scope.launch {
-                        syncBillsFromAutoAccounting(activity)
                     }
                 }
-            }
-        })
+            },
+        )
+        // 这里是为了执行数据同步
+        XposedHelpers.findAndHookMethod(
+            clazz,
+            "onResume",
+            object : XC_MethodHook() {
+                override fun afterHookedMethod(param: MethodHookParam?) {
+                    super.afterHookedMethod(param)
+                    val activity = param!!.thisObject as Activity
+                    // 如果自动记账功能打开，从自动记账同步账单
+                    val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
+                    XposedBridge.log("$clazz onResume => isAutoAccounting ? $isAutoAccounting")
+                    if (isAutoAccounting == "true") {
+                        hooker.scope.launch {
+                            syncBillsFromAutoAccounting(activity)
+                        }
+                    }
+                }
+            },
+        )
     }
 
-    private fun hookMenu(activity: Activity, classLoader: ClassLoader?) {
+    private fun hookMenu(
+        activity: Activity,
+        classLoader: ClassLoader?,
+    ) {
         var hooked = false
         val clazz = classLoader!!.loadClass("com.mutangtech.qianji.ui.maindrawer.MainDrawerLayout")
         XposedHelpers.findAndHookMethod(
@@ -184,7 +187,7 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
             object : XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam?) {
                     super.afterHookedMethod(param)
-                    //只hook一次
+                    // 只hook一次
                     val obj = param!!.thisObject as FrameLayout
 
                     setVipName(obj, classLoader)
@@ -199,44 +202,49 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                         XposedHelpers.callMethod(
                             activity.resources.assets,
                             "addAssetPath",
-                            HookMainApp.modulePath
+                            HookMainApp.modulePath,
                         )
-                        //找到了obj里面的name字段
+                        // 找到了obj里面的name字段
                         addSettingMenu(linearLayout, activity, classLoader)
                     }.onFailure {
                         XposedBridge.log(it)
                     }
                 }
-            })
+            },
+        )
     }
-    private suspend fun onAutoAccountingError(it:AutoAccountingException, context: Activity) = withContext(Dispatchers.Main){
-        when(it.code){
-            AutoAccountingException.CODE_SERVER_AUTHORIZE->{
+
+    private suspend fun onAutoAccountingError(
+        it: AutoAccountingException,
+        context: Activity,
+    ) = withContext(Dispatchers.Main) {
+        when (it.code) {
+            AutoAccountingException.CODE_SERVER_AUTHORIZE -> {
                 XposedBridge.log("自动记账授权失败:${it.message}")
-                //前往自动记账授权
+                // 前往自动记账授权
                 val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
-                //设置包名，用于自动记账对目标app进行检查
+                // 设置包名，用于自动记账对目标app进行检查
                 intent.putExtra("packageName", hooker.packPageName)
                 try {
-                    context.startActivityForResult(intent,codeAuth)
-                }catch (e: ActivityNotFoundException){
-                    //没有自动记账，需要引导用户下载自动记账App
+                    context.startActivityForResult(intent, codeAuth)
+                } catch (e: ActivityNotFoundException) {
+                    // 没有自动记账，需要引导用户下载自动记账App
                     XposedBridge.log(e)
                     onGetAutoApplication(context)
                 }
             }
-            AutoAccountingException.CODE_SERVER_UN_INIT->{
+            AutoAccountingException.CODE_SERVER_UN_INIT -> {
                 XposedBridge.log("自动记账未初始化:${it.message}")
                 it.printStackTrace()
             }
-            AutoAccountingException.CODE_SERVER_ERROR->{
+            AutoAccountingException.CODE_SERVER_ERROR -> {
                 XposedBridge.log("自动记账服务未启动:${it.message}")
                 var findAuto = false
                 arrayOf(
                     "xposed",
-                    "help"
+                    "help",
                 ).forEach {
-                    if(findAuto)return@forEach
+                    if (findAuto)return@forEach
                     val packageName = "net.ankio.auto.$it" // 替换为目标应用的包名
                     val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
                     if (launchIntent != null) {
@@ -244,90 +252,101 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
                         findAuto = true
                     }
                 }
-                if(!findAuto){
+                if (!findAuto) {
                     onGetAutoApplication(context)
                 }
-
             }
         }
     }
 
-    private suspend fun onGetAutoApplication(context:Activity) = withContext(Dispatchers.Main){
-        Toast.makeText(context,"未找到自动记账，请从Github下载自动记账App", Toast.LENGTH_SHORT).show()
-        // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
-        val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
-        val intentAuto = Intent(Intent.ACTION_VIEW)
-        intentAuto.data = Uri.parse(url)
-        try {
-            context.startActivity(intentAuto)
-        } catch (e: ActivityNotFoundException) {
-            Toast.makeText(context, "没有安装任何支持的浏览器客户端", Toast.LENGTH_SHORT).show()
+    private suspend fun onGetAutoApplication(context: Activity) =
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, "未找到自动记账，请从Github下载自动记账App", Toast.LENGTH_SHORT).show()
+            // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
+            val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
+            val intentAuto = Intent(Intent.ACTION_VIEW)
+            intentAuto.data = Uri.parse(url)
+            try {
+                context.startActivity(intentAuto)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(context, "没有安装任何支持的浏览器客户端", Toast.LENGTH_SHORT).show()
+            }
         }
-    }
-    private suspend fun syncBillsFromAutoAccounting(activity: Activity) = withContext(Dispatchers.IO){
-       hooker.scope.launch {
-          runCatching {
-              //账本等信息优先同步
-              syncUtils.books()
-              // 同步资产
-              syncUtils.assets()
-              //同步账单
-              syncUtils.billsFromQianJi()
-              //从自动记账同步账单
-              //TODO
-          }.onFailure {
-              if (it is AutoAccountingException){
-                  onAutoAccountingError(it,activity)
-              }
-          }
-       }
 
-    }
+    private suspend fun syncBillsFromAutoAccounting(activity: Activity) =
+        withContext(Dispatchers.IO) {
+            hooker.scope.launch {
+                runCatching {
+                    // 账本等信息优先同步
+                    syncUtils.books()
+                    // 同步资产
+                    syncUtils.assets()
+                    // 同步账单
+                    syncUtils.billsFromQianJi()
+                    // 从自动记账同步账单
+                    syncUtils.billsFromAuto()
+                }.onFailure {
+                    if (it is AutoAccountingException) {
+                        onAutoAccountingError(it, activity)
+                    }
+                }
+            }
+        }
 
     /**
      * 尝试启动自动记账服务
      * @throws AutoAccountingException
      */
-    private suspend fun tryStartAutoAccounting(activity: Activity) = withContext(Dispatchers.IO) {
-        AutoAccounting.init(
-            activity,
-            Gson().toJson(hooker.configSyncUtils.config),
-        )
-
-    }
+    private suspend fun tryStartAutoAccounting(activity: Activity) =
+        withContext(Dispatchers.IO) {
+            AutoAccounting.init(
+                activity,
+                Gson().toJson(hooker.configSyncUtils.config),
+            )
+        }
 
     /**
      * 设置Vip名称
      */
-    private fun setVipName(obj: FrameLayout,classLoader: ClassLoader?){
+    private fun setVipName(
+        obj: FrameLayout,
+        classLoader: ClassLoader?,
+    ) {
         val vipName = hooker.hookUtils.readData("vipName")
-        if(vipName!==""){
+        if (vipName !== "") {
             // 调用 findViewById 并转换为 TextView
-            val textView = getViewById(obj,classLoader!!,"settings_vip_badge")  as TextView
+            val textView = getViewById(obj, classLoader!!, "settings_vip_badge") as TextView
             textView.visibility = View.VISIBLE
             textView.text = vipName
         }
-
     }
-
 
     private lateinit var autoAccounting: Switch
 
-    private lateinit var rClass : Class<*>
-    private fun getViewById(obj: FrameLayout,classLoader: ClassLoader, id: String): View {
-        if(!::rClass.isInitialized){
+    private lateinit var rClass: Class<*>
+
+    private fun getViewById(
+        obj: FrameLayout,
+        classLoader: ClassLoader,
+        id: String,
+    ): View {
+        if (!::rClass.isInitialized) {
             rClass = Class.forName("com.mutangtech.qianji.R\$id", true, classLoader)
         }
         val resourceId = rClass.getField(id).getInt(null)
         // 调用 findViewById 并转换为 TextView
-      return  XposedHelpers.callMethod(
+        return XposedHelpers.callMethod(
             obj,
             "findViewById",
-            resourceId
+            resourceId,
         ) as View
     }
 
-    private fun addSettingMenu(linearLayout: LinearLayout, context: Activity,classLoader: ClassLoader?){
+    private fun addSettingMenu(
+        linearLayout: LinearLayout,
+        context: Activity,
+        classLoader: ClassLoader?,
+    ) {
         val isDarkMode: Boolean = isDarkMode(context)
         val mainColor = if (isDarkMode) -0x2c2c2d else -0xcacacb
         val subColor = if (isDarkMode) -0x9a9a9b else -0x666667
@@ -341,48 +360,47 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
         version.text = BuildConfig.VERSION_NAME
         version.setTextColor(subColor)
         view.setOnClickListener {
-            //弹出自定义布局
+            // 弹出自定义布局
             val menuListView = LayoutInflater.from(context).inflate(R.layout.menu_list, null)
             menuListView.setBackgroundColor(backgroundColor)
-            //弹窗AlertDialog
+            // 弹窗AlertDialog
             val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
             autoAccounting = menuListView.findViewById(R.id.autoAccounting)
             autoAccounting.setTextColor(mainColor)
             autoAccounting.isChecked = isAutoAccounting == "true"
             autoAccounting.setOnClickListener {
-                if(autoAccounting.isChecked){
-                   hooker.scope.launch {
-                       runCatching {
-                           tryStartAutoAccounting(context)
-                           hooker.hookUtils.writeData("isAutoAccounting","true")
-                       }.onFailure {
-                           withContext(Dispatchers.Main){
-                               autoAccounting.isChecked = false
-                               val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
-                               //设置包名，用于自动记账对目标app进行检查
-                               intent.putExtra("packageName", hooker.packPageName)
-                               try {
-                                   context.startActivityForResult(intent,codeAuth)
-                               }catch (e: ActivityNotFoundException){
-                                   //没有自动记账，需要引导用户下载自动记账App
-                                  XposedBridge.log(e)
-                                   Toast.makeText(context,"未找到自动记账，请从Github下载自动记账App",Toast.LENGTH_SHORT).show()
-                                  // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
-                                   val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
-                                   val intentAuto = Intent(Intent.ACTION_VIEW)
-                                   intentAuto.data = Uri.parse(url)
-                                   try {
-                                       context.startActivity(intentAuto)
-                                   } catch (e: ActivityNotFoundException) {
-                                       Toast.makeText(context, "没有安装任何支持的浏览器客户端", Toast.LENGTH_SHORT).show()
-                                   }
-
-                               }
-                           }
-                       }
-                   }
-                }else{
-                    hooker.hookUtils.writeData("isAutoAccounting","false")
+                if (autoAccounting.isChecked) {
+                    hooker.scope.launch {
+                        runCatching {
+                            tryStartAutoAccounting(context)
+                            hooker.hookUtils.writeData("isAutoAccounting", "true")
+                        }.onFailure {
+                            withContext(Dispatchers.Main) {
+                                autoAccounting.isChecked = false
+                                val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
+                                // 设置包名，用于自动记账对目标app进行检查
+                                intent.putExtra("packageName", hooker.packPageName)
+                                try {
+                                    context.startActivityForResult(intent, codeAuth)
+                                } catch (e: ActivityNotFoundException) {
+                                    // 没有自动记账，需要引导用户下载自动记账App
+                                    XposedBridge.log(e)
+                                    Toast.makeText(context, "未找到自动记账，请从Github下载自动记账App", Toast.LENGTH_SHORT).show()
+                                    // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
+                                    val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
+                                    val intentAuto = Intent(Intent.ACTION_VIEW)
+                                    intentAuto.data = Uri.parse(url)
+                                    try {
+                                        context.startActivity(intentAuto)
+                                    } catch (e: ActivityNotFoundException) {
+                                        Toast.makeText(context, "没有安装任何支持的浏览器客户端", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    hooker.hookUtils.writeData("isAutoAccounting", "false")
                 }
             }
 
@@ -403,28 +421,26 @@ class SidePartHooker(hooker: Hooker) :PartHooker(hooker) {
             editText.text = hooker.hookUtils.readData("vipName")
             editText.setOnEditorActionListener { v, actionId, event ->
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    hooker.hookUtils.writeData("vipName",v.text.toString())
-                    setVipName(linearLayout.parent as FrameLayout,classLoader)
+                    hooker.hookUtils.writeData("vipName", v.text.toString())
+                    setVipName(linearLayout.parent as FrameLayout, classLoader)
                 }
                 false
             }
 
             // 创建AlertDialog并设置自定义视图
-            val dialog: AlertDialog = AlertDialog.Builder(context)
-                .setIcon(R.mipmap.ic_launcher)
-                .setTitle(context.getString(R.string.app_name))
-                .setView(menuListView)
-                .create()
+            val dialog: AlertDialog =
+                AlertDialog.Builder(context)
+                    .setIcon(R.mipmap.ic_launcher)
+                    .setTitle(context.getString(R.string.app_name))
+                    .setView(menuListView)
+                    .create()
 // 显示弹窗
             dialog.show()
-
         }
         linearLayout.addView(view.rootView)
     }
 
-
     private fun isDarkMode(context: Context): Boolean {
         return Configuration.UI_MODE_NIGHT_YES == (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
     }
-
 }
