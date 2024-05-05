@@ -17,12 +17,11 @@ package net.ankio.qianji.api
 
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam
 
-
 interface iHooker {
-
     val packPageName: String
     val appName: String
+
     fun onLoadPackage(lpparam: LoadPackageParam?)
 
-     var  clazz:HashMap<String,String>
+    var clazz: HashMap<String, String>
 }

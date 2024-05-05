@@ -1,106 +1,175 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp"
-    android:orientation="vertical">
-
-    <TextView
-        android:textSize="16sp"
-        android:padding="10dp"
-        android:id="@+id/title1"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="功能补全" />
-
-    <Switch
-        android:textStyle="bold"
-        android:textSize="20sp"
-        android:padding="10dp"
-        android:id="@+id/autoAccounting"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="自动记账（未登录亦可）" />
-
-    <TextView
-        android:textSize="16sp"
-        android:padding="10dp"
-        android:id="@+id/title3"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="自定义会员称呼" />
-
-    <EditText
-        android:id="@+id/editTextText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ems="10"
-        android:textSize="20sp"
-        android:padding="10dp"
-        android:inputType="text"
-        android:text="终身会员" />
-
-    <TextView
-        android:id="@+id/title2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:padding="10dp"
-        android:text="分类备份" />
-
+    >
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:padding="16dp"
+        android:orientation="vertical">
 
-        <Button
-            android:id="@+id/categoryBackup"
-            android:layout_width="wrap_content"
-            android:layout_weight="1"
+        <TextView
+            android:textSize="16sp"
+            android:padding="10dp"
+            android:id="@+id/title1"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="5dp"
-            android:text="导出分类数据" />
+            android:text="自动记账" />
 
-
-        <Button
-            android:id="@+id/categoryRestore"
-            android:layout_width="wrap_content"
-            android:layout_weight="1"
-            android:layout_margin="5dp"
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/autoAccounting"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="导入分类数据" />
+            android:text="自动记账主开关" />
+        <TextView
+            android:textSize="16sp"
+            android:padding="10dp"
+            android:id="@+id/title5"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="自动记账相关功能" />
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/assetManagement"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="资产管理" />
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/multiCurrency"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="多币种" />
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/reimbursement"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="报销" />
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/lending"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="债务" />
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/multiBooks"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="多账本" />
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/fee"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="手续费" />
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/autoAssets"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="资产不存在时自动创建" />
+        <Switch
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:id="@+id/autoCategory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="分类不存在时自动创建" />
+        <TextView
+            android:textSize="16sp"
+            android:padding="10dp"
+            android:id="@+id/title3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="自定义会员称呼" />
+
+        <EditText
+            android:id="@+id/editTextText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:textSize="20sp"
+            android:padding="10dp"
+            android:inputType="text"
+            android:text="终身会员" />
+
+        <TextView
+            android:id="@+id/title2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:padding="10dp"
+            android:text="分类备份（敬请期待）" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/categoryBackup"
+                android:layout_width="wrap_content"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:text="导出分类数据" />
+
+
+            <Button
+                android:id="@+id/categoryRestore"
+                android:layout_width="wrap_content"
+                android:layout_weight="1"
+                android:layout_margin="5dp"
+                android:layout_height="wrap_content"
+                android:text="导入分类数据" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/title4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:padding="10dp"
+            android:text="数据备份（敬请期待）" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/dataBackup"
+                android:layout_width="wrap_content"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:text="导出本地数据" />
+
+        </LinearLayout>
+
+
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/title4"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:padding="10dp"
-        android:text="数据备份" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/dataBackup"
-            android:layout_width="wrap_content"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:layout_margin="5dp"
-            android:text="导出本地数据" />
-
-
-        <Button
-            android:id="@+id/dataRestore"
-            android:layout_width="wrap_content"
-            android:layout_weight="1"
-            android:layout_margin="5dp"
-            android:layout_height="wrap_content"
-            android:text="导入本地数据" />
-    </LinearLayout>
-
-
-</LinearLayout>
+</ScrollView>

@@ -10,6 +10,8 @@ import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Switch
@@ -29,6 +31,7 @@ import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
+import net.ankio.qianji.databinding.MenuListBinding
 import net.ankio.qianji.utils.SyncUtils
 
 class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
@@ -44,6 +47,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
     }
 
     private lateinit var syncUtils: SyncUtils
+    private lateinit var binding: MenuListBinding
 
     private fun hookMainActivity(
         classLoader: ClassLoader,
@@ -276,18 +280,22 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
         withContext(Dispatchers.IO) {
             hooker.scope.launch {
                 runCatching {
-                    // 账本等信息优先同步
+                    log("同步账本")
                     syncUtils.books()
-                    // 同步资产
+
+                    log("同步资产")
                     syncUtils.assets()
-                    // 同步账单
+
+                    log("同步账单")
                     syncUtils.billsFromQianJi()
-                    // 从自动记账同步账单
+
+                    log("从自动记账同步账单")
                     syncUtils.billsFromAuto()
                 }.onFailure {
                     if (it is AutoAccountingException) {
                         onAutoAccountingError(it, activity)
                     }
+                    XposedBridge.log(it)
                 }
             }
         }
@@ -359,23 +367,41 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
         version.text = BuildConfig.VERSION_NAME
         version.setTextColor(subColor)
         view.setOnClickListener {
+            binding = MenuListBinding.inflate(LayoutInflater.from(context))
             // 弹出自定义布局
-            val menuListView = LayoutInflater.from(context).inflate(R.layout.menu_list, null)
+            val menuListView = binding.root
             menuListView.setBackgroundColor(backgroundColor)
             // 弹窗AlertDialog
             val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
-            autoAccounting = menuListView.findViewById(R.id.autoAccounting)
-            autoAccounting.setTextColor(mainColor)
-            autoAccounting.isChecked = isAutoAccounting == "true"
-            autoAccounting.setOnClickListener {
-                if (autoAccounting.isChecked) {
+
+            // 遍历binding的所有属性，所有父类型是view的设置背景色和前景色
+            binding::class.java.declaredFields.forEach {
+                if (View::class.java.isAssignableFrom(it.type)) {
+                    it.isAccessible = true
+                    val bindingView = it.get(binding) as View
+                    if (TextView::class.java.isAssignableFrom(it.type)) {
+                        (bindingView as TextView).setTextColor(mainColor)
+                    } else if (Switch::class.java.isAssignableFrom(it.type)) {
+                        (bindingView as Switch).setTextColor(mainColor)
+                    } else if (EditText::class.java.isAssignableFrom(it.type)) {
+                        (bindingView as EditText).setTextColor(mainColor)
+                    } else if (Button::class.java.isAssignableFrom(it.type)) {
+                        (bindingView as Button).setTextColor(mainColor)
+                    }
+                    //   }
+                }
+            }
+
+            binding.autoAccounting.isChecked = isAutoAccounting == "true"
+            binding.autoAccounting.setOnClickListener {
+                if (binding.autoAccounting.isChecked) {
                     hooker.scope.launch {
                         runCatching {
                             tryStartAutoAccounting(context)
                             hooker.hookUtils.writeData("isAutoAccounting", "true")
                         }.onFailure {
                             withContext(Dispatchers.Main) {
-                                autoAccounting.isChecked = false
+                                binding.autoAccounting.isChecked = false
                                 val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
                                 // 设置包名，用于自动记账对目标app进行检查
                                 intent.putExtra("packageName", hooker.packPageName)
@@ -403,22 +429,8 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 }
             }
 
-            val title1 = menuListView.findViewById<TextView>(R.id.title1)
-            title1.setTextColor(subColor)
-
-            val title2 = menuListView.findViewById<TextView>(R.id.title2)
-            title2.setTextColor(subColor)
-
-            val title3 = menuListView.findViewById<TextView>(R.id.title3)
-            title3.setTextColor(subColor)
-
-            val title4 = menuListView.findViewById<TextView>(R.id.title4)
-            title4.setTextColor(subColor)
-
-            val editText = menuListView.findViewById<TextView>(R.id.editTextText)
-            editText.setTextColor(mainColor)
-            editText.text = hooker.hookUtils.readData("vipName")
-            editText.setOnEditorActionListener { v, actionId, event ->
+            binding.editTextText.setText(hooker.hookUtils.readData("vipName"))
+            binding.editTextText.setOnEditorActionListener { v, actionId, event ->
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
                     hooker.hookUtils.writeData("vipName", v.text.toString())
                     setVipName(linearLayout.parent as FrameLayout, classLoader)
@@ -426,11 +438,25 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 false
             }
 
+            val config = hooker.configSyncUtils.config
+            config::class.java.declaredFields.forEach {
+                it.isAccessible = true
+                val name = it.name
+                val value = it.get(config) as Boolean
+                val switch = binding::class.java.getDeclaredField(name).get(binding) as Switch
+                switch.isChecked = value
+                switch.setOnCheckedChangeListener { buttonView, isChecked ->
+                    it.set(config, isChecked)
+                    hooker.scope.launch {
+                        hooker.configSyncUtils.saveAndSync()
+                    }
+                }
+            }
+
             // 创建AlertDialog并设置自定义视图
             val dialog: AlertDialog =
                 AlertDialog.Builder(context)
                     .setIcon(R.mipmap.ic_launcher)
-                    .setTitle(context.getString(R.string.app_name))
                     .setView(menuListView)
                     .create()
 // 显示弹窗

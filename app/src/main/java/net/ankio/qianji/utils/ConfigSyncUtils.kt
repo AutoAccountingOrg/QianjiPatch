@@ -3,76 +3,35 @@ package net.ankio.qianji.utils
 import android.content.Context
 import com.google.gson.Gson
 import de.robv.android.xposed.XposedBridge
-import kotlinx.coroutines.launch
 import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.common.config.AccountingConfig
 import net.ankio.qianji.api.Hooker
+import java.lang.RuntimeException
 
-class ConfigSyncUtils(val context: Context,val hooker: Hooker) {
-    var config: AccountingConfig = runCatching {
-       Gson().fromJson(hooker.hookUtils.readData("config"),AccountingConfig::class.java)
-   }.getOrElse {
-       AccountingConfig(
-              assetManagement = true,
-              multiCurrency = true,
-              reimbursement = true,
-              lending = true,
-              multiBooks = true,
-              fee = true
-       )
-   }
+class ConfigSyncUtils(val context: Context, val hooker: Hooker) {
+    var config: AccountingConfig =
+        runCatching {
+            Gson().fromJson(hooker.hookUtils.readData("config"), AccountingConfig::class.java)
+                ?: throw RuntimeException("config is null")
+        }.getOrElse {
+            AccountingConfig(
+                assetManagement = true,
+                multiCurrency = true,
+                reimbursement = true,
+                lending = true,
+                multiBooks = true,
+                fee = true,
+            )
+        }
 
-    private suspend fun saveAndSync(){
-       runCatching {
-           val  configText = Gson().toJson(config)
-           hooker.hookUtils.writeData("config",configText)
-           AutoAccounting.setConfig(context,configText)
-       }.onFailure {
-           XposedBridge.log(it)
-       }
-    }
-
-    fun setAssetManagement(boolean: Boolean){
-        config.assetManagement = boolean
-        hooker.scope.launch {
-            saveAndSync()
+    suspend fun saveAndSync() {
+        runCatching {
+            val configText = Gson().toJson(config)
+            hooker.hookUtils.writeData("config", configText)
+            AutoAccounting.setConfig(context, configText)
+            hooker.hookUtils.log("Config", configText)
+        }.onFailure {
+            XposedBridge.log(it)
         }
     }
-
-    fun setMultiCurrency(boolean: Boolean){
-        config.multiCurrency = boolean
-        hooker.scope.launch {
-            saveAndSync()
-        }
-    }
-
-    fun setReimbursement(boolean: Boolean){
-        config.reimbursement = boolean
-        hooker.scope.launch {
-            saveAndSync()
-        }
-    }
-
-    fun setLending(boolean: Boolean){
-        config.lending = boolean
-        hooker.scope.launch {
-            saveAndSync()
-        }
-    }
-
-    fun setMultiBooks(boolean: Boolean){
-        config.multiBooks = boolean
-        hooker.scope.launch {
-            saveAndSync()
-        }
-    }
-
-    fun setFee(boolean: Boolean){
-        config.fee = boolean
-        hooker.scope.launch {
-            saveAndSync()
-        }
-    }
-
-
 }

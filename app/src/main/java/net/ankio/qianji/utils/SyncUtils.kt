@@ -127,13 +127,14 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
      */
     suspend fun getCategoryList(bookId: Long): HashMap<String, Any> =
         suspendCoroutine { continuation ->
-
             val handler =
                 InvocationHandler { _, method, args ->
                     if (method.name == "onGetCategoryList") {
                         val list1 = args[0]
                         val list2 = args[1]
-                        continuation.resume(hashMapOf("list1" to list1, "list2" to list2))
+                        runCatching {
+                            continuation.resume(hashMapOf("list1" to list1, "list2" to list2))
+                        }
                     }
                     null
                 }
@@ -163,14 +164,19 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                         val z10 = args[0]
                         val accounts = args[1]
                         val hashMap = args[2]
-                        //   XposedBridge.log("账户信息:${Gson().toJson(accounts)},z10:${Gson().toJson(z10)},hashMap:${Gson().toJson(hashMap)}")
-                        continuation.resume(accounts as List<*>)
+                        XposedBridge.log("账户信息:${Gson().toJson(accounts)},z10:${Gson().toJson(z10)},hashMap:${Gson().toJson(hashMap)}")
+
+                        if (accounts !== null) {
+                            continuation.resume(accounts as List<*>)
+                        }
                     } else if (method.name == "onGetAssetsFromDB") {
                         val z10 = args[1]
                         val accounts = args[0]
                         val hashMap = args[2]
-                        //   XposedBridge.log("账户信息:${Gson().toJson(accounts)},z10:${Gson().toJson(z10)},hashMap:${Gson().toJson(hashMap)}")
-                        continuation.resume(accounts as List<*>)
+                        XposedBridge.log("账户信息2:${Gson().toJson(accounts)},z10:${Gson().toJson(z10)},hashMap:${Gson().toJson(hashMap)}")
+                        if (accounts !== null) {
+                            continuation.resume(accounts as List<*>)
+                        }
                     }
                     null
                 }
