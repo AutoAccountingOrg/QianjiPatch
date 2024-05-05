@@ -216,7 +216,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 bxPresenterImplClazz.getMethod("refresh", enumFilter, bookFilter, keywordFilter)
 
             val enumConstants = enumFilter.enumConstants
-            val enumConstant = enumConstants.find { (it as Enum<*>).name == "ALL" }
+            val enumConstant = enumConstants.find { (it as Enum<*>).name == "NOT" }
 
             val bookFilterInstance = bookFilter.getDeclaredConstructor().newInstance()
             val keywordConstructor = keywordFilter.getDeclaredConstructor(String::class.java)
