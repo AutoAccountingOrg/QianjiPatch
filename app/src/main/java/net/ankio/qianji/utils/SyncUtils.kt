@@ -564,7 +564,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                     val gson = Gson()
                     val bill = gson.fromJson(gson.toJson(it), AutoBillModel::class.java)
                     // 构建钱迹账单
-                    val uri = QianjiUri(bill).getUri()
+                    val uri = QianjiUri(bill, hooker.configSyncUtils.config).getUri()
                     val intent = Intent(Intent.ACTION_VIEW, uri)
                     context.startActivity(intent)
                     index++

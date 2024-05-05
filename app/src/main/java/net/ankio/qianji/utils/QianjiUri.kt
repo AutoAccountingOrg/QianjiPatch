@@ -1,12 +1,13 @@
 package net.ankio.qianji.utils
 
 import android.net.Uri
+import net.ankio.common.config.AccountingConfig
 import net.ankio.common.model.AutoBillModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class QianjiUri(private val billModel: AutoBillModel) {
+class QianjiUri(private val billModel: AutoBillModel, config: AccountingConfig) {
     private val uri = StringBuilder("qianji://publicapi/addbill")
 
     init {
@@ -16,13 +17,25 @@ class QianjiUri(private val billModel: AutoBillModel) {
         uri.append("&remark=${urlEncode(billModel.remark)}")
         uri.append("&catename=${urlEncode(billModel.cateName)}")
         uri.append("&catechoose=0")
-        if (billModel.bookName !== "日常生活") {
-            uri.append("&bookname=${billModel.bookName}")
+
+        if (config.multiBooks) {
+            if (billModel.bookName !== "默认账本") {
+                uri.append("&bookname=${billModel.bookName}")
+            }
         }
 
-        uri.append("&accountname=${billModel.accountNameFrom}")
-        uri.append("&accountname2=${billModel.accountNameTo}")
-        uri.append("&fee=${billModel.fee}")
+        if (config.assetManagement || config.lending) {
+            uri.append("&accountname=${urlEncode(billModel.accountNameFrom)}")
+            uri.append("&accountname2=${urlEncode(billModel.accountNameTo)}")
+        }
+
+        if (config.fee) {
+            uri.append("&fee=${billModel.fee}")
+        }
+
+        if (config.multiCurrency) {
+            uri.append("&currency=${billModel.currency.name}")
+        }
         // 自动记账添加的拓展字段
         uri.append("&extendData=${billModel.extendData}")
 
