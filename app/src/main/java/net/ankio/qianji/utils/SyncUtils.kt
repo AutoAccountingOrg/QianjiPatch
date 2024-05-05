@@ -27,62 +27,105 @@ import kotlin.coroutines.suspendCoroutine
 /**
  * 用于将钱迹的数据同步给自动记账
  */
-class SyncUtils(val context: Context, val classLoader: ClassLoader, private val hooker: Hooker) {
-    private lateinit var bookManager: Any
-    private lateinit var bookClazz: Class<*>
+class SyncUtils(val context: Context, private val classLoader: ClassLoader, private val hooker: Hooker) {
+    /**
+     * 账本管理
+     */
+    private var bookManager: Any =
+        XposedHelpers.callStaticMethod(
+            classLoader.loadClass(hooker.clazz["BookManager"]),
+            "getInstance",
+        )
 
-    private lateinit var proxyOnGetCategoryListClazz: Class<*>
-    private lateinit var cateInitPresenterImplClazz: Class<*>
-    private lateinit var category: Class<*>
+    /**
+     * 账本模型
+     */
+    private var bookClazz: Class<*> = classLoader.loadClass("com.mutangtech.qianji.data.model.Book")
 
-    private lateinit var assetsClazz: Class<*>
-    private lateinit var proxyOnGetAssetsClazz: Class<*>
-    private lateinit var assetPreviewPresenterImplClazz: Class<*>
+    /**
+     * 获取到分类之后的处理类
+     */
+    private var proxyOnGetCategoryListClazz: Class<*> = classLoader.loadClass(hooker.clazz["onGetCategoryList"])
 
-    private lateinit var billClazz: Class<*>
-    private lateinit var proxyOnGetBaoXiaoList: Class<*>
-    private lateinit var bxPresenterImplClazz: Class<*>
+    /**
+     * 分类初始化
+     */
+    private var cateInitPresenterImplClazz: Class<*> =
+        classLoader.loadClass(
+            "com.mutangtech.qianji.bill.add.category.CateInitPresenterImpl",
+        )
 
-    // 一些过滤参数
-    private lateinit var enumFilter: Class<*>
-    private lateinit var bookFilter: Class<*>
-    private lateinit var keywordFilter: Class<*>
+    /**
+     * 分类模型
+     */
+    private var category: Class<*> = classLoader.loadClass("com.mutangtech.qianji.data.model.Category")
 
-    fun init() {
-        // 初始化账本信息
-        bookManager =
-            XposedHelpers.callStaticMethod(
-                classLoader.loadClass(hooker.clazz["BookManager"]),
-                "getInstance",
-            )
-        bookClazz = classLoader.loadClass("com.mutangtech.qianji.data.model.Book")
-        // 初始化分类信息
-        cateInitPresenterImplClazz =
-            classLoader.loadClass("com.mutangtech.qianji.bill.add.category.CateInitPresenterImpl")
-        proxyOnGetCategoryListClazz = classLoader.loadClass(hooker.clazz["onGetCategoryList"])
-        category = classLoader.loadClass("com.mutangtech.qianji.data.model.Category")
+    /**
+     * 资产模型
+     */
+    var assetsClazz: Class<*> = classLoader.loadClass("com.mutangtech.qianji.data.model.AssetAccount")
 
-        // 资产
-        assetPreviewPresenterImplClazz =
-            classLoader.loadClass("com.mutangtech.qianji.asset.account.mvp.AssetPreviewPresenterImpl")
-        assetsClazz = classLoader.loadClass("com.mutangtech.qianji.data.model.AssetAccount")
-        proxyOnGetAssetsClazz = classLoader.loadClass(hooker.clazz["onGetAssetsFromApi"])
-        // 债务
+    /**
+     * 获取到资产之后的处理类
+     */
+    private var proxyOnGetAssetsClazz: Class<*> = classLoader.loadClass(hooker.clazz["onGetAssetsFromApi"])
 
-        billClazz = classLoader.loadClass("com.mutangtech.qianji.data.model.Bill")
-        proxyOnGetBaoXiaoList = classLoader.loadClass(hooker.clazz["onGetBaoXiaoList"])
-        bxPresenterImplClazz =
-            classLoader.loadClass("com.mutangtech.qianji.bill.baoxiao.BxPresenterImpl")
+    /**
+     * 资产管理类
+     */
+    private var assetPreviewPresenterImplClazz: Class<*> =
+        classLoader.loadClass(
+            "com.mutangtech.qianji.asset.account.mvp.AssetPreviewPresenterImpl",
+        )
 
-        enumFilter = classLoader.loadClass(hooker.clazz["filterEnum"])
-        bookFilter = classLoader.loadClass("com.mutangtech.qianji.filter.filters.BookFilter")
-        keywordFilter = classLoader.loadClass("com.mutangtech.qianji.filter.filters.KeywordFilter")
+    /**
+     * 账单模型
+     */
+    var billClazz: Class<*> = classLoader.loadClass("com.mutangtech.qianji.data.model.Bill")
+
+    /**
+     * 获取到报销列表后的处理类
+     */
+    var proxyOnGetBaoXiaoList: Class<*> = classLoader.loadClass(hooker.clazz["onGetBaoXiaoList"])
+
+    /**
+     * 报销管理
+     */
+    var bxPresenterImplClazz: Class<*> = classLoader.loadClass("com.mutangtech.qianji.bill.baoxiao.BxPresenterImpl")
+
+    /**
+     * 报销过滤的枚举类型
+     */
+    private var enumFilter: Class<*> = classLoader.loadClass(hooker.clazz["filterEnum"])
+
+    /**
+     * 账本枚举类型
+     */
+    private var bookFilter: Class<*> = classLoader.loadClass("com.mutangtech.qianji.filter.filters.BookFilter")
+
+    /**
+     * 关键词枚举
+     */
+    private var keywordFilter: Class<*> = classLoader.loadClass("com.mutangtech.qianji.filter.filters.KeywordFilter")
+
+    companion object {
+        @Volatile
+        private var INSTANCE: SyncUtils? = null
+
+        fun getInstance(
+            context: Context,
+            classLoader: ClassLoader,
+            hooker: Hooker,
+        ): SyncUtils =
+            INSTANCE ?: synchronized(this) {
+                INSTANCE ?: SyncUtils(context, classLoader, hooker).also { INSTANCE = it }
+            }
     }
 
     /**
      * 获取分类列表
      */
-    private suspend fun getCategoryList(bookId: Long): HashMap<String, Any> =
+    suspend fun getCategoryList(bookId: Long): HashMap<String, Any> =
         suspendCoroutine { continuation ->
 
             val handler =
@@ -111,7 +154,7 @@ class SyncUtils(val context: Context, val classLoader: ClassLoader, private val 
     /**
      * 获取资产列表
      */
-    private suspend fun getAssetsList(): List<*> =
+    suspend fun getAssetsList(): List<*> =
         suspendCoroutine { continuation ->
 
             val handler =
@@ -148,7 +191,7 @@ class SyncUtils(val context: Context, val classLoader: ClassLoader, private val 
     /**
      * 获取报销账单列表
      */
-    private suspend fun getBaoXiaoList(): List<*> =
+    suspend fun getBaoXiaoList(): List<*> =
         suspendCoroutine { continuation ->
 
             val handler =

@@ -169,41 +169,33 @@ class QianjiHooker : Hooker() {
     ): Boolean {
         val code = hookUtils.getVersionCode()
         val adaptationVersion = hookUtils.readData("adaptation").toIntOrNull() ?: 0
-        if (adaptationVersion == code)
-            {
-                runCatching {
-                    clazz = Gson().fromJson(hookUtils.readData("clazz"), HashMap::class.java) as HashMap<String, String>
-                    if (clazz.size != clazzRule.size)
-                        {
-                            throw Exception("适配失败")
-                        }
-                }.onFailure {
-                    hookUtils.writeData("adaptation", "0")
-                    XposedBridge.log(it)
-                }.onSuccess {
-                    return true
+        if (adaptationVersion == code) {
+            runCatching {
+                clazz = Gson().fromJson(hookUtils.readData("clazz"), HashMap::class.java) as HashMap<String, String>
+                if (clazz.size != clazzRule.size) {
+                    throw Exception("适配失败")
                 }
+            }.onFailure {
+                hookUtils.writeData("adaptation", "0")
+                XposedBridge.log(it)
+            }.onSuccess {
+                return true
             }
+        }
         hookUtils.toast("钱迹补丁开始适配中...")
         val total = clazzRule.size
         val hashMap = Dex.findClazz(context.packageResourcePath, classLoader, clazzRule)
-        if (hashMap.size == total)
-            {
-                hookUtils.writeData("adaptation", code.toString())
-                clazz = hashMap
-                hookUtils.writeData("clazz", Gson().toJson(clazz))
-                XposedBridge.log("适配成功:$hashMap")
-                hookUtils.toast("适配成功")
-                return true
-            } else {
+        if (hashMap.size == total) {
+            hookUtils.writeData("adaptation", code.toString())
+            clazz = hashMap
+            hookUtils.writeData("clazz", Gson().toJson(clazz))
+            XposedBridge.log("适配成功:$hashMap")
+            hookUtils.toast("适配成功")
+            return true
+        } else {
             XposedBridge.log("适配失败:$hashMap")
             hookUtils.toast("适配失败")
             return false
         }
-
-        // BookManager被混淆过了，需要进行查找
-        // TODO 如果用户已经登录，要求将账本和分类数据拉取到本地
-
-        // TODO 复制钱迹数据库到缓存单独处理
     }
 }

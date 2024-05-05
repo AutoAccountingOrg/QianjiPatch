@@ -66,8 +66,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                     hookMenu(activity, classLoader)
                     // 初始化同步工具（clazz加载）
 
-                    syncUtils = SyncUtils(activity, classLoader, hooker)
-                    syncUtils.init()
+                    syncUtils = SyncUtils.getInstance(activity, classLoader, hooker)
                     // 判断自动记账是否需要加载
                     val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
                     XposedBridge.log("$clazz onCreate  => isAutoAccounting ? $isAutoAccounting")
