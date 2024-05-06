@@ -39,7 +39,7 @@ jobs:
           mkdir "${rootDir}/release/"
     
            "${rootDir}/gradlew" "assembleRelease"
-            cp "${rootDir}/app/build/outputs/apk/release/app.apk" "${rootDir}/release/app.apk"
+            cp "${rootDir}/app/build/outputs/apk/release/app-release-unsigned.apk" "${rootDir}/release/app.apk"
         id: set_version
       - name: 上传 APK 到 artifact
         uses: actions/upload-artifact@v3
