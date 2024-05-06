@@ -37,8 +37,7 @@ jobs:
           chmod +x "${rootDir}/gradlew"
           # 创建release目录
           mkdir "${rootDir}/release/"
-          # 构建二进制文件
-          "${rootDir}/gradlew" app:buildCMakeRelWithDebInfo
+    
            "${rootDir}/gradlew" "assembleRelease"
             cp "${rootDir}/app/build/outputs/apk/release/app.apk" "${rootDir}/release/app.apk"
         id: set_version
