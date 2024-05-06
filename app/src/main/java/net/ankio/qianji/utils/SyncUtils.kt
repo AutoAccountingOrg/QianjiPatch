@@ -110,15 +110,15 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
 
     companion object {
         @Volatile
-        private var INSTANCE: SyncUtils? = null
+        private var instance: SyncUtils? = null
 
         fun getInstance(
             context: Context,
             classLoader: ClassLoader,
             hooker: Hooker,
         ): SyncUtils =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: SyncUtils(context, classLoader, hooker).also { INSTANCE = it }
+            instance ?: synchronized(this) {
+                instance ?: SyncUtils(context, classLoader, hooker).also { instance = it }
             }
     }
 
@@ -157,7 +157,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
      */
     suspend fun getAssetsList(): List<*> =
         suspendCoroutine { continuation ->
-
+            var resumed = false
             val handler =
                 InvocationHandler { _, method, args ->
                     if (method.name == "onGetAssetsFromApi") {
@@ -166,7 +166,8 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                         val hashMap = args[2]
                         XposedBridge.log("账户信息:${Gson().toJson(accounts)},z10:${Gson().toJson(z10)},hashMap:${Gson().toJson(hashMap)}")
 
-                        if (accounts !== null) {
+                        if (accounts !== null && !resumed) {
+                            resumed = true
                             continuation.resume(accounts as List<*>)
                         }
                     } else if (method.name == "onGetAssetsFromDB") {
@@ -174,7 +175,8 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                         val accounts = args[0]
                         val hashMap = args[2]
                         XposedBridge.log("账户信息2:${Gson().toJson(accounts)},z10:${Gson().toJson(z10)},hashMap:${Gson().toJson(hashMap)}")
-                        if (accounts !== null) {
+                        if (accounts !== null && !resumed) {
+                            resumed = true
                             continuation.resume(accounts as List<*>)
                         }
                     }
@@ -574,8 +576,6 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 withContext(Dispatchers.Main) {
                     hooker.hookUtils.toast("账单同步完成！")
                 }
-            }.onFailure {
-                XposedBridge.log(it)
             }
         }
 

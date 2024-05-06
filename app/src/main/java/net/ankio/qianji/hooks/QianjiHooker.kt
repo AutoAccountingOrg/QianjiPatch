@@ -16,7 +16,7 @@ class QianjiHooker : Hooker() {
     override var partHookers: MutableList<PartHooker> =
         arrayListOf(
             SidePartHooker(this),
-            // 因为onresume万金油的关系所以同步很容易发生
+            AutoPartHooker(this),
         )
 
     override var clazz: HashMap<String, String> =

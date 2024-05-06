@@ -1,5 +1,7 @@
 package net.ankio.qianji.utils
 
+import net.ankio.common.constant.BillType
+
 enum class QianjiBillType(private val value: Int) {
     Expend(0), // 支出
     Income(1), // 收入
@@ -22,15 +24,15 @@ enum class QianjiBillType(private val value: Int) {
         // 将整数转换为枚举值
         fun fromBillType(value: Int): Int {
             return when (value) {
-                0 -> Expend.toInt()
-                1 -> Income.toInt()
-                2 -> Transfer.toInt()
-                4 -> ExpendReimbursement.toInt()
-                5 -> ExpendLending.toInt()
-                6 -> ExpendRepayment.toInt()
-                7 -> IncomeLending.toInt()
-                8 -> IncomeRepayment.toInt()
-                9 -> IncomeReimbursement.toInt()
+                BillType.Expend.ordinal -> Expend.toInt()
+                BillType.Income.ordinal -> Income.toInt()
+                BillType.Transfer.ordinal -> Transfer.toInt()
+                BillType.ExpendReimbursement.ordinal -> ExpendReimbursement.toInt()
+                BillType.ExpendLending.ordinal -> ExpendLending.toInt()
+                BillType.ExpendRepayment.ordinal -> ExpendRepayment.toInt()
+                BillType.IncomeLending.ordinal -> IncomeLending.toInt()
+                BillType.IncomeRepayment.ordinal -> IncomeRepayment.toInt()
+                BillType.IncomeReimbursement.ordinal -> IncomeReimbursement.toInt()
                 else -> Expend.toInt()
             }
         }

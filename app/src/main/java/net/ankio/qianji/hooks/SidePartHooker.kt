@@ -66,7 +66,6 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                     /**
                      * activity as  ComponentActivity
                      */
-                    // hook菜单
                     hookMenu(activity, classLoader)
                     // 初始化同步工具（clazz加载）
 

@@ -4,8 +4,13 @@ import android.content.Context
 import android.content.Intent
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.ankio.common.model.AutoBillModel
+import net.ankio.dex.Dex
+import net.ankio.dex.model.ClazzField
+import net.ankio.dex.model.ClazzMethod
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
 import net.ankio.qianji.utils.QianjiBillType
@@ -14,8 +19,9 @@ import net.ankio.qianji.utils.SyncUtils
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import java.util.Calendar
+import java.util.HashSet
 
-class AutoHooker(hooker: Hooker) : PartHooker(hooker) {
+class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
     override val hookName: String
         get() = "自动记账接口HooK"
     private lateinit var syncUtils: SyncUtils
@@ -24,18 +30,38 @@ class AutoHooker(hooker: Hooker) : PartHooker(hooker) {
         classLoader: ClassLoader,
         context: Context,
     ) {
-        syncUtils = SyncUtils.getInstance(context, classLoader, hooker)
+        val addBillIntentAct = classLoader.loadClass("com.mutangtech.qianji.bill.auto.AddBillIntentAct")
+        val method =
+            Dex.findMethod(
+                addBillIntentAct,
+                ClazzMethod(
+                    parameters =
+                        listOf(
+                            ClazzField(
+                                type = "android.content.Intent",
+                            ),
+                        ),
+                    regex = "^\\w{2}$",
+                ),
+            )
+
+        if (method.isEmpty()) {
+            log("未找到方法")
+            return
+        }
+
         XposedHelpers.findAndHookMethod(
-            "com.mutangtech.qianji.bill.auto.AddBillIntentAct",
-            classLoader,
-            "onNewIntent",
+            addBillIntentAct,
+            method,
             Intent::class.java,
             object : XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     super.beforeHookedMethod(param)
                     val intent = param.args?.get(0) as Intent
                     val data = intent.data ?: return
+                    log("data:$data")
                     val billModel = QianjiUri.parseUri(data)
+                    log("billModel:$billModel")
                     val type = billModel.type
                     if (type == 0 || type == 5 || type == 1 || type == 2 || type == 3) {
                         return
@@ -47,7 +73,7 @@ class AutoHooker(hooker: Hooker) : PartHooker(hooker) {
                     param.args[0] = intent
 
                     // data = null 之后后续流程直接中断
-
+                    syncUtils = SyncUtils.getInstance(context, classLoader, hooker)
                     when (type) {
                         QianjiBillType.Expend.toInt() -> {
                         }
@@ -98,16 +124,19 @@ class AutoHooker(hooker: Hooker) : PartHooker(hooker) {
         classLoader: ClassLoader,
         context: Context,
     ) {
-        val list = billModel.extendData.split(",")
+        val list = billModel.extendData.split(", ")
 
-        val billList = syncUtils.getBaoXiaoList()
+        val billList =
+            withContext(Dispatchers.Main) {
+                syncUtils.getBaoXiaoList()
+            }
         if (billList.isEmpty()) {
             // 可报销的账单为空
             return
         }
 
         // 根据账单id过滤出Set<Bill>，参数1
-        val billIdField = syncUtils.billClazz.getDeclaredField("billId")
+        val billIdField = syncUtils.billClazz.getDeclaredField("billid")
         billIdField.isAccessible = true
         val selectBills =
             billList.filter {
@@ -120,18 +149,24 @@ class AutoHooker(hooker: Hooker) : PartHooker(hooker) {
 
         log("selectBills:$selectBills")
 
+        val set = HashSet<Any>(selectBills)
+
         // 根据收入账户获取AssetsAccount，参数2
-        val assetAccounts = syncUtils.getAssetsList()
+        val assetAccounts = withContext(Dispatchers.Main) { syncUtils.getAssetsList() }
         if (assetAccounts.isEmpty())return
+
+        log("assetAccounts:$assetAccounts")
+
         val nameField = syncUtils.assetsClazz.getDeclaredField("name")
         nameField.isAccessible = true
         val assetAccount =
             assetAccounts.firstOrNull {
-                val name = (nameField.get(it) as String).toString()
+                val name = nameField.get(it) as String
                 name == billModel.accountNameFrom
             }
 
         if (assetAccount == null) {
+            log("未找到账户：${billModel.accountNameFrom}")
             return
         }
         log("assetAccount:$assetAccount")
@@ -173,8 +208,14 @@ class AutoHooker(hooker: Hooker) : PartHooker(hooker) {
                 currencyExtra,
             )
 
-        method.invoke(obj, selectBills, assetAccount, amount, calendar, currencyExtraInstance)
+        log(
+            "amount = $amount, calendar = $calendar, currencyExtraInstance = $currencyExtraInstance,account = $assetAccount, selectBills = $selectBills",
+        )
 
-        hooker.hookUtils.toast("报销成功")
+        withContext(Dispatchers.Main) {
+            method.invoke(obj, set, assetAccount, amount, calendar, currencyExtraInstance)
+
+            hooker.hookUtils.toast("报销成功")
+        }
     }
 }
