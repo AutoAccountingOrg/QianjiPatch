@@ -1,0 +1,54 @@
+{
+  "categories": [
+    {
+      "title": "## 🚀 Features",
+      "labels": ["feat","feats","sparkles"]
+    },
+    {
+      "title": "## \uD83C\uDF1F Optimizes",
+      "labels": ["art","zap","lipstick"]
+    },
+    {
+      "title": "## 🐛 Fixes",
+      "labels": ["bug","fix","ambulance"]
+    },
+    {
+      "title": "## 🧪 Tests",
+      "labels": ["🧪","test","tests"]
+    },
+    {
+      "title": "## 💬 Other",
+      "labels": ["fire",  "rocket","other","tada","construction_worker","green_heart"]
+    },
+    {
+      "title": "## \uD83D\uDCD6 Docs",
+      "labels": ["doc","docs","memo"]
+    },
+    {
+      "title": "## 📦 Dependencies",
+      "labels": ["dependencies","deps","arrow_down","arrow_up"]
+    }
+  ],
+  "template": "${{CHANGELOG}}",
+  "pr_template": "- **${{TITLE}}**",
+  "label_extractor": [
+    {
+      "pattern": ":(.+): (.+)",
+      "target": "$1",
+      "on_property": "title"
+    }
+  ],
+  "transformers": [
+    {
+      "pattern": ":(.+): (.+)",
+      "target": "$2"
+    }
+  ],
+  "duplicate_filter": {
+    "pattern": ".+",
+    "on_property": "title",
+    "method": "match"
+  },
+  "max_pull_requests": 1000,
+  "max_back_track_time_days": 1000
+}
