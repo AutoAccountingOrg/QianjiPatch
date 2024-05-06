@@ -26,7 +26,7 @@ jobs:
         run: |
           rootDir=$(pwd)
           # 配置版本号和版本名
-          versionName=$(grep 'versionName' "${rootDir}/app/build.gradle" | sed -n 's/.*versionName "\([^"]*\)".*/\1/p' |awk '{print $2}' |  tr -d '[:space:]')
+          versionName=$(grep 'versionName' "${rootDir}/app/build.gradle" | sed -n 's/.*versionName "\([^"]*\)".*/\1/p')
           versionCode=$(grep 'versionCode' "${rootDir}/app/build.gradle" |  awk '{print $2}' | tr -d '[:space:]')
           # 设置标签名，使用 '+' 分隔构建元数据
           tagVersionName="v${versionName}+commit.$(date +'%Y%m%d%H%M%S')"
