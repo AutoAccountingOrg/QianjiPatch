@@ -97,6 +97,10 @@ jobs:
     needs: sign
     runs-on: ubuntu-latest
     steps:
+      - name: 下载代码
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: 下载脚本
         uses: actions/download-artifact@v3
         with:
