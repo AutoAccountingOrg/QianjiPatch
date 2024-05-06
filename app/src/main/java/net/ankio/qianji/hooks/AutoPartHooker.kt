@@ -8,7 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ankio.common.model.AutoBillModel
-import net.ankio.dex.Dex
 import net.ankio.dex.model.ClazzField
 import net.ankio.dex.model.ClazzMethod
 import net.ankio.qianji.api.Hooker
@@ -26,14 +25,9 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
         get() = "自动记账接口HooK"
     private lateinit var syncUtils: SyncUtils
 
-    override fun onInit(
-        classLoader: ClassLoader,
-        context: Context,
-    ) {
-        val addBillIntentAct = classLoader.loadClass("com.mutangtech.qianji.bill.auto.AddBillIntentAct")
-        val method =
-            Dex.findMethod(
-                addBillIntentAct,
+    override val methodsRule: HashMap<String, ClazzMethod> =
+        hashMapOf(
+            "com.mutangtech.qianji.bill.auto.AddBillIntentAct#HandleIntent" to
                 ClazzMethod(
                     parameters =
                         listOf(
@@ -43,30 +37,36 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
                         ),
                     regex = "^\\w{2}$",
                 ),
-            )
+        )
 
-        if (method.isEmpty()) {
+    override fun onInit(
+        classLoader: ClassLoader,
+        context: Context,
+    ) {
+        if (!findMethods(classLoader)) {
             log("未找到方法")
             return
         }
 
         XposedHelpers.findAndHookMethod(
-            addBillIntentAct,
-            method,
+            "com.mutangtech.qianji.bill.auto.AddBillIntentAct",
+            classLoader,
+            method["com.mutangtech.qianji.bill.auto.AddBillIntentAct#HandleIntent"],
             Intent::class.java,
             object : XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     super.beforeHookedMethod(param)
                     val intent = param.args?.get(0) as Intent
                     val data = intent.data ?: return
-                    log("data:$data")
+
                     val billModel = QianjiUri.parseUri(data)
-                    log("billModel:$billModel")
+
                     val type = billModel.type
                     if (type == 0 || type == 5 || type == 1 || type == 2 || type == 3) {
                         return
                     }
 
+                    val obj = param.thisObject
                     // 判断是否登录，未登录用户不能使用自动记账接口
 
                     intent.data = null
@@ -110,7 +110,7 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
                         QianjiBillType.IncomeReimbursement.toInt() -> {
                             // 收入（报销）
                             hooker.scope.launch {
-                                incomeReimbursement(billModel, classLoader, context)
+                                incomeReimbursement(billModel, classLoader, context, obj)
                             }
                         }
                     }
@@ -123,12 +123,13 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
         billModel: AutoBillModel,
         classLoader: ClassLoader,
         context: Context,
+        AddBillIntentAct: Any,
     ) {
         val list = billModel.extendData.split(", ")
 
         val billList =
             withContext(Dispatchers.Main) {
-                syncUtils.getBaoXiaoList()
+                syncUtils.getBaoXiaoList(true)
             }
         if (billList.isEmpty()) {
             // 可报销的账单为空
@@ -198,7 +199,7 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
         // public void doBaoXiao(java.util.Set<? extends com.mutangtech.qianji.data.model.Bill> r39, com.mutangtech.qianji.data.model.AssetAccount r40, double r41, java.util.Calendar r43, com.mutangtech.qianji.data.model.CurrencyExtra r44) {
         //
         val asset = syncUtils.assetsClazz
-        val method =
+        val doBaoXiao =
             bxPresenterImplClazz.getMethod(
                 "doBaoXiao",
                 Set::class.java,
@@ -213,7 +214,14 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
         )
 
         withContext(Dispatchers.Main) {
-            method.invoke(obj, set, assetAccount, amount, calendar, currencyExtraInstance)
+            doBaoXiao.invoke(obj, set, assetAccount, amount, calendar, currencyExtraInstance)
+
+            val showToastMethod =
+                classLoader.loadClass(
+                    "com.mutangtech.qianji.bill.auto.AddBillIntentAct",
+                ).getDeclaredMethod("finish")
+            showToastMethod.isAccessible = true
+            showToastMethod.invoke(AddBillIntentAct)
 
             hooker.hookUtils.toast("报销成功")
         }

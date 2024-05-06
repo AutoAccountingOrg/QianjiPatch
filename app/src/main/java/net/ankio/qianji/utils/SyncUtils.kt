@@ -199,7 +199,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
     /**
      * 获取报销账单列表
      */
-    suspend fun getBaoXiaoList(): List<*> =
+    suspend fun getBaoXiaoList(all: Boolean = false): List<*> =
         suspendCoroutine { continuation ->
 
             val handler =
@@ -218,7 +218,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 bxPresenterImplClazz.getMethod("refresh", enumFilter, bookFilter, keywordFilter)
 
             val enumConstants = enumFilter.enumConstants
-            val enumConstant = enumConstants.find { (it as Enum<*>).name == "NOT" }
+            val enumConstant = enumConstants.find { (it as Enum<*>).name == (if (all)"ALL" else "NOT") }
 
             val bookFilterInstance = bookFilter.getDeclaredConstructor().newInstance()
             val keywordConstructor = keywordFilter.getDeclaredConstructor(String::class.java)
