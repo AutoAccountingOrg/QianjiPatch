@@ -21,7 +21,7 @@ class HookUtils(private val mContext: Context) {
         var appVersionCode: Long = 0
         try {
             val packageInfo: PackageInfo =
-                mContext.applicationContext
+                mContext
                     .packageManager
                     .getPackageInfo(mContext.packageName, 0)
             appVersionCode =

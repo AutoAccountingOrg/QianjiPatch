@@ -203,7 +203,7 @@ class QianjiHooker : Hooker() {
                 }
             }.onFailure {
                 hookUtils.writeData("adaptation", "0")
-                XposedBridge.log(it)
+                //   XposedBridge.log(it)
             }.onSuccess {
                 loadAllClazz(classLoader)
                 return true
