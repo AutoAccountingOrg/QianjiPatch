@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Color
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
@@ -31,8 +32,10 @@ import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
+import net.ankio.qianji.databinding.ItemMenuBinding
 import net.ankio.qianji.databinding.MenuListBinding
 import net.ankio.qianji.utils.SyncUtils
+import net.ankio.qianji.utils.UserUtils
 
 class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
     override val hookName: String = "钱迹左侧设置页"
@@ -115,7 +118,8 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                         val resultData = intent.getStringExtra("token")
                         // 调用自动记账存储
                         try {
-                            AutoAccounting.setToken(activity, resultData)
+                            AutoAccounting.setToken(activity, resultData!!)
+
                             // 授权成功尝试重启
                             hooker.scope.launch {
                                 runCatching {
@@ -261,22 +265,25 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
         }
     }
 
-    private suspend fun onGetAutoApplication(context: Activity) =
-        withContext(Dispatchers.Main) {
-            Toast.makeText(context, "未找到自动记账，请从Github下载自动记账App", Toast.LENGTH_SHORT).show()
-            // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
-            val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
-            val intentAuto = Intent(Intent.ACTION_VIEW)
-            intentAuto.data = Uri.parse(url)
-            try {
-                context.startActivity(intentAuto)
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(context, "没有安装任何支持的浏览器客户端", Toast.LENGTH_SHORT).show()
-            }
+    private fun onGetAutoApplication(context: Activity) {
+        hooker.hookUtils.toastError("未找到自动记账，请从Github下载自动记账App")
+        // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
+        val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
+        val intentAuto = Intent(Intent.ACTION_VIEW)
+        intentAuto.data = Uri.parse(url)
+        try {
+            context.startActivity(intentAuto)
+        } catch (e: ActivityNotFoundException) {
+            hooker.hookUtils.toastError("没有安装任何支持的浏览器客户端")
         }
+    }
 
     private suspend fun syncBillsFromAutoAccounting(activity: Activity) =
         withContext(Dispatchers.IO) {
+            if (!UserUtils.isLogin(hooker)) {
+                hooker.hookUtils.toastError("未登录用户不支持同步数据")
+                return@withContext
+            }
             hooker.scope.launch {
                 runCatching {
                     log("同步账本")
@@ -357,15 +364,16 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
         val mainColor = if (isDarkMode) -0x2c2c2d else -0xcacacb
         val subColor = if (isDarkMode) -0x9a9a9b else -0x666667
         val backgroundColor = if (isDarkMode) -0xd1d1d2 else -0x1
-        val view = LayoutInflater.from(context).inflate(R.layout.item_menu, null)
-        view.setBackgroundColor(backgroundColor)
-        val title = view.findViewById<TextView>(R.id.title)
-        title.text = context.getString(R.string.app_name)
-        title.setTextColor(mainColor)
-        val version = view.findViewById<TextView>(R.id.version)
-        version.text = BuildConfig.VERSION_NAME
-        version.setTextColor(subColor)
-        view.setOnClickListener {
+
+        val itemMenuBinding = ItemMenuBinding.inflate(LayoutInflater.from(context))
+        itemMenuBinding.root.setBackgroundColor(Color.parseColor(if (isDarkMode) "#191919" else "#ffffff"))
+
+        itemMenuBinding.title.text = context.getString(R.string.app_name)
+        itemMenuBinding.title.setTextColor(Color.parseColor(if (isDarkMode) "#b6b6b6" else "#2c2c2c"))
+
+        itemMenuBinding.version.text = BuildConfig.VERSION_NAME
+        itemMenuBinding.version.setTextColor(subColor)
+        itemMenuBinding.root.setOnClickListener {
             binding = MenuListBinding.inflate(LayoutInflater.from(context))
             // 弹出自定义布局
             val menuListView = binding.root
@@ -392,39 +400,21 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
             }
 
             binding.autoAccounting.isChecked = isAutoAccounting == "true"
-            binding.autoAccounting.setOnClickListener {
-                if (binding.autoAccounting.isChecked) {
-                    hooker.scope.launch {
-                        runCatching {
-                            tryStartAutoAccounting(context)
-                            hooker.hookUtils.writeData("isAutoAccounting", "true")
-                        }.onFailure {
-                            withContext(Dispatchers.Main) {
-                                binding.autoAccounting.isChecked = false
-                                val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
-                                // 设置包名，用于自动记账对目标app进行检查
-                                intent.putExtra("packageName", hooker.packPageName)
-                                try {
-                                    context.startActivityForResult(intent, codeAuth)
-                                } catch (e: ActivityNotFoundException) {
-                                    // 没有自动记账，需要引导用户下载自动记账App
-                                    XposedBridge.log(e)
-                                    Toast.makeText(context, "未找到自动记账，请从Github下载自动记账App", Toast.LENGTH_SHORT).show()
-                                    // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
-                                    val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
-                                    val intentAuto = Intent(Intent.ACTION_VIEW)
-                                    intentAuto.data = Uri.parse(url)
-                                    try {
-                                        context.startActivity(intentAuto)
-                                    } catch (e: ActivityNotFoundException) {
-                                        Toast.makeText(context, "没有安装任何支持的浏览器客户端", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
+
+            binding.autoAccounting.setOnCheckedChangeListener { buttonView, isChecked ->
+                if (!isChecked) {
                     hooker.hookUtils.writeData("isAutoAccounting", "false")
+                    return@setOnCheckedChangeListener
+                }
+                binding.autoAccounting.isChecked = false
+                val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
+                // 设置包名，用于自动记账对目标app进行检查
+                intent.putExtra("packageName", hooker.packPageName)
+                try {
+                    context.startActivityForResult(intent, codeAuth)
+                } catch (e: ActivityNotFoundException) {
+                    onGetAutoApplication(context)
+                    // 没有自动记账，需要引导用户下载自动记账App
                 }
             }
 
@@ -461,7 +451,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
 // 显示弹窗
             dialog.show()
         }
-        linearLayout.addView(view.rootView)
+        linearLayout.addView(itemMenuBinding.root)
     }
 
     private fun isDarkMode(context: Context): Boolean {
