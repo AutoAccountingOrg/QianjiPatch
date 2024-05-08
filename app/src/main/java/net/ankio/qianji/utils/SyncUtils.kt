@@ -33,7 +33,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
      */
     private var bookManager: Any =
         XposedHelpers.callStaticMethod(
-            classLoader.loadClass(hooker.clazz["BookManager"]),
+            hooker.loadClazz["BookManager"],
             "getInstance",
         )
 
@@ -45,7 +45,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
     /**
      * 获取到分类之后的处理类
      */
-    private var proxyOnGetCategoryListClazz: Class<*> = classLoader.loadClass(hooker.clazz["onGetCategoryList"])
+    private var proxyOnGetCategoryListClazz: Class<*> = hooker.loadClazz["onGetCategoryList"]!!
 
     /**
      * 分类初始化
@@ -68,7 +68,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
     /**
      * 获取到资产之后的处理类
      */
-    private var proxyOnGetAssetsClazz: Class<*> = classLoader.loadClass(hooker.clazz["onGetAssetsFromApi"])
+    private var proxyOnGetAssetsClazz: Class<*> = hooker.loadClazz["onGetAssetsFromApi"]!!
 
     /**
      * 资产管理类
@@ -86,7 +86,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
     /**
      * 获取到报销列表后的处理类
      */
-    var proxyOnGetBaoXiaoList: Class<*> = classLoader.loadClass(hooker.clazz["onGetBaoXiaoList"])
+    var proxyOnGetBaoXiaoList: Class<*> = hooker.loadClazz["onGetBaoXiaoList"]!!
 
     /**
      * 报销管理
@@ -96,7 +96,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
     /**
      * 报销过滤的枚举类型
      */
-    private var enumFilter: Class<*> = classLoader.loadClass(hooker.clazz["filterEnum"])
+    private var enumFilter: Class<*> = hooker.loadClazz["filterEnum"]!!
 
     /**
      * 账本枚举类型

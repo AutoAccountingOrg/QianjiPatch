@@ -2,6 +2,7 @@ package net.ankio.qianji.hooks
 
 import android.app.Application
 import android.content.Context
+import android.widget.Toast
 import com.google.gson.Gson
 import com.hjq.toast.Toaster
 import de.robv.android.xposed.XposedBridge
@@ -21,7 +22,7 @@ class QianjiHooker : Hooker() {
             AutoPartHooker(this),
         )
 
-    override var clazz: HashMap<String, String> =
+    var clazz: HashMap<String, String> =
         hashMapOf(
             "BookManager" to "", // 账本管理类
             "onGetCategoryList" to "", // 获取分类的接口
@@ -29,6 +30,7 @@ class QianjiHooker : Hooker() {
             "onGetBaoXiaoList" to "", // 获取报销账单的接口
             "filterEnum" to "", // 过滤器枚举
         )
+    override var loadClazz: HashMap<String, Class<*>> = hashMapOf()
 
     private val clazzRule =
         mutableListOf(
@@ -163,6 +165,26 @@ class QianjiHooker : Hooker() {
                         ),
                     ),
             ),
+            Clazz(
+                name = "UserManager",
+                nameRule = "^\\w{0,2}\\..+",
+                type = "class",
+                methods =
+                    listOf(
+                        ClazzMethod(
+                            name = "isLogin",
+                            returnType = "boolean",
+                        ),
+                        ClazzMethod(
+                            name = "isVip",
+                            returnType = "boolean",
+                        ),
+                        ClazzMethod(
+                            name = "isSuperVIP",
+                            returnType = "boolean",
+                        ),
+                    ),
+            ),
         )
 
     override fun hookLoadPackage(
@@ -183,11 +205,11 @@ class QianjiHooker : Hooker() {
                 hookUtils.writeData("adaptation", "0")
                 XposedBridge.log(it)
             }.onSuccess {
+                loadAllClazz(classLoader)
                 return true
             }
         }
-
-        hookUtils.toastInfo("钱迹补丁开始适配中...")
+        Toast.makeText(context, "钱迹补丁开始适配中...", Toast.LENGTH_LONG).show()
         val total = clazzRule.size
         val hashMap = Dex.findClazz(context.packageResourcePath, classLoader, clazzRule)
         if (hashMap.size == total) {
@@ -196,11 +218,18 @@ class QianjiHooker : Hooker() {
             hookUtils.writeData("clazz", Gson().toJson(clazz))
             XposedBridge.log("适配成功:$hashMap")
             hookUtils.toastInfo("适配成功")
+            loadAllClazz(classLoader)
             return true
         } else {
             XposedBridge.log("适配失败:$hashMap")
             hookUtils.toastError("适配失败")
             return false
+        }
+    }
+
+    private fun loadAllClazz(classLoader: ClassLoader) {
+        clazz.forEach {
+            loadClazz[it.key] = classLoader.loadClass(it.value)!!
         }
     }
 }

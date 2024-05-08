@@ -23,5 +23,5 @@ interface iHooker {
 
     fun onLoadPackage(lpparam: LoadPackageParam?)
 
-    var clazz: HashMap<String, String>
+    var loadClazz: HashMap<String, Class<*>>
 }
