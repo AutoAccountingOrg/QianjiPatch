@@ -44,6 +44,7 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
         context: Context,
     ) {
         if (!findMethods(classLoader)) {
+            hooker.hookUtils.toastError("hook函数未适配")
             log("未找到方法")
             return
         }

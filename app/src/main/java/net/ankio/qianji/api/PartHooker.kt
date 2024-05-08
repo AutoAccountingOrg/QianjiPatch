@@ -74,7 +74,6 @@ abstract class PartHooker(val hooker: Hooker) {
         }
         methodsRule.forEach {
             val (clazz, methodName) = it.key.split("#")
-            log("findMethods clazz:$clazz methodName:$methodName")
             val loadClazz = clazzLoader.loadClass(clazz)
             val findMethod =
                 Dex.findMethod(
