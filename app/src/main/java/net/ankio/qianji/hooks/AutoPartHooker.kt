@@ -15,6 +15,7 @@ import net.ankio.qianji.api.PartHooker
 import net.ankio.qianji.utils.QianjiBillType
 import net.ankio.qianji.utils.QianjiUri
 import net.ankio.qianji.utils.SyncUtils
+import net.ankio.qianji.utils.UserUtils
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import java.util.Calendar
@@ -57,6 +58,11 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
             object : XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     super.beforeHookedMethod(param)
+                    if (!UserUtils.isLogin(hooker))
+                        {
+                            hooker.hookUtils.toastError("未登录用户无法自动记账")
+                            return
+                        }
                     val intent = param.args?.get(0) as Intent
                     val data = intent.data ?: return
 
