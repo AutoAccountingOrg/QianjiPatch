@@ -116,6 +116,8 @@ abstract class Hooker : iHooker {
                     e.message?.let { Log.e("AutoAccountingError", it) }
                     Log.i(HookMainApp.getTag(), "钱迹补丁Hook异常..${e.message}.")
                     XposedBridge.log(e)
+                    // 不管什么原因异常，都有可能是适配的问题，所以直接将适配版本 = 0
+                    hookUtils.writeData("adaptation", "0")
                 }
             }
         }

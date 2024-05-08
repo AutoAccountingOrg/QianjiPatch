@@ -9,6 +9,7 @@ espressoCore = "3.5.1"
 appcompat = "1.6.1"
 material = "1.11.0"
 sdk = "68c6dc618a"
+toaster = "12.6"
 xposed = "82"
 kotlinxCoroutinesAndroid = "1.8.0"
 gson = "2.10.1"
@@ -23,6 +24,7 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 sdk = { module = "com.github.AutoAccountingOrg.AutoAccounting:sdk", version.ref = "sdk" }
+toaster = { module = "com.github.getActivity:Toaster", version.ref = "toaster" }
 xposed = { module = "de.robv.android.xposed:api", version.ref = "xposed" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }

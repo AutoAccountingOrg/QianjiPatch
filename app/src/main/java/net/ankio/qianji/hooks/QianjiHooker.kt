@@ -1,7 +1,9 @@
 package net.ankio.qianji.hooks
 
+import android.app.Application
 import android.content.Context
 import com.google.gson.Gson
+import com.hjq.toast.Toaster
 import de.robv.android.xposed.XposedBridge
 import net.ankio.dex.Dex
 import net.ankio.dex.model.Clazz
@@ -167,9 +169,11 @@ class QianjiHooker : Hooker() {
         classLoader: ClassLoader,
         context: Context,
     ): Boolean {
+        hookUtils.addAutoContext(context)
+        Toaster.init(context as Application)
         val code = hookUtils.getVersionCode()
         val adaptationVersion = hookUtils.readData("adaptation").toIntOrNull() ?: 0
-        if (adaptationVersion == code) {
+        if (adaptationVersion == code && code != 0) {
             runCatching {
                 clazz = Gson().fromJson(hookUtils.readData("clazz"), HashMap::class.java) as HashMap<String, String>
                 if (clazz.size != clazzRule.size) {
@@ -182,7 +186,8 @@ class QianjiHooker : Hooker() {
                 return true
             }
         }
-        hookUtils.toast("钱迹补丁开始适配中...")
+
+        hookUtils.toastInfo("钱迹补丁开始适配中...")
         val total = clazzRule.size
         val hashMap = Dex.findClazz(context.packageResourcePath, classLoader, clazzRule)
         if (hashMap.size == total) {
@@ -190,11 +195,11 @@ class QianjiHooker : Hooker() {
             clazz = hashMap
             hookUtils.writeData("clazz", Gson().toJson(clazz))
             XposedBridge.log("适配成功:$hashMap")
-            hookUtils.toast("适配成功")
+            hookUtils.toastInfo("适配成功")
             return true
         } else {
             XposedBridge.log("适配失败:$hashMap")
-            hookUtils.toast("适配失败")
+            hookUtils.toastError("适配失败")
             return false
         }
     }

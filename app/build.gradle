@@ -55,6 +55,6 @@ dependencies {
     implementation libs.sdk
     implementation libs.common
     compileOnly libs.xposed
-
+    implementation libs.toaster
 
 }
