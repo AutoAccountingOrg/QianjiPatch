@@ -316,7 +316,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
             val fields = category::class.java.declaredFields
             for (field in fields) {
                 field.isAccessible = true
-                val value = field.get(category)
+                val value = field.get(category) ?: continue
                 /**
                  * [
                  *     {
@@ -400,11 +400,9 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                     "parentId" -> model.parent = (value as Long).toString()
                     "sort" -> model.sort = value as Int
                     "subList" -> {
-                        if (value != null) {
-                            val subList = value as List<*>
-                            //    XposedBridge.log("子分类:${Gson().toJson(subList)}")
-                            categories.addAll(convertCategoryToModel(subList, type))
-                        }
+                        val subList = value as List<*>
+                        //    XposedBridge.log("子分类:${Gson().toJson(subList)}")
+                        categories.addAll(convertCategoryToModel(subList, type))
                     }
                 }
             }
