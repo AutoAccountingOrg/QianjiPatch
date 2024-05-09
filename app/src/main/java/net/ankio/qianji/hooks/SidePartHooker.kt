@@ -406,7 +406,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                     hooker.hookUtils.writeData("isAutoAccounting", "false")
                     return@setOnCheckedChangeListener
                 }
-                binding.autoAccounting.isChecked = false
+                // binding.autoAccounting.isChecked = false
                 val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
                 // 设置包名，用于自动记账对目标app进行检查
                 intent.putExtra("packageName", hooker.packPageName)
