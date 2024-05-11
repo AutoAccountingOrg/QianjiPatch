@@ -19,7 +19,7 @@ class QianjiUri(private val billModel: AutoBillModel, config: AccountingConfig) 
         uri.append("&catechoose=0")
 
         if (config.multiBooks) {
-            if (billModel.bookName != "默认账本") {
+            if (billModel.bookName != "默认账本" && billModel.bookName != "日常账本") {
                 uri.append("&bookname=${billModel.bookName}")
             }
         }
