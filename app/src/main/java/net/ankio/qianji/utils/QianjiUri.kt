@@ -1,26 +1,31 @@
 package net.ankio.qianji.utils
 
 import android.net.Uri
-import net.ankio.common.config.AccountingConfig
-import net.ankio.common.model.AutoBillModel
+import net.ankio.qianji.model.AccountingConfig
+import net.ankio.qianji.model.BillInfo
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class QianjiUri(private val billModel: AutoBillModel, config: AccountingConfig) {
+class QianjiUri(private val billModel: BillInfo, config: AccountingConfig) {
     private val uri = StringBuilder("qianji://publicapi/addbill")
 
     init {
         uri.append("?type=${QianjiBillType.fromBillType(billModel.type)}")
-        uri.append("&money=${billModel.amount}")
+        uri.append("&money=${billModel.money}")
         uri.append("&time=${formatTime(billModel.timeStamp)}")
         uri.append("&remark=${urlEncode(billModel.remark)}")
-        uri.append("&catename=${urlEncode(billModel.cateName)}")
+        var category = billModel.cateName
+        if (billModel.cateName.contains("-")) {
+            val categoryNames = billModel.cateName.split("-")
+            category = "${categoryNames[0]}/::/${categoryNames[1]}"
+        }
+        uri.append("&catename=${urlEncode(category)}")
         uri.append("&catechoose=0")
 
         if (config.multiBooks) {
             if (billModel.bookName != "默认账本" && billModel.bookName != "日常账本") {
-                uri.append("&bookname=${billModel.bookName}")
+                uri.append("&bookname=${urlEncode(billModel.bookName)}")
             }
         }
 
@@ -34,7 +39,7 @@ class QianjiUri(private val billModel: AutoBillModel, config: AccountingConfig) 
         }
 
         if (config.multiCurrency) {
-            uri.append("&currency=${billModel.currency.name}")
+            uri.append("&currency=${billModel.currency}")
         }
         // 自动记账添加的拓展字段
         uri.append("&extendData=${billModel.extendData}")
@@ -60,7 +65,7 @@ class QianjiUri(private val billModel: AutoBillModel, config: AccountingConfig) 
             }
         }
 
-        fun parseUri(uri: Uri): AutoBillModel {
+        fun parseUri(uri: Uri): BillInfo {
             val type = uri.getQueryParameter("type")?.toInt() ?: 0
             val amount = uri.getQueryParameter("money")?.toFloat() ?: 0.0F
             val time = dateToStamp(uri.getQueryParameter("time")!!, "yyyy-MM-dd HH:mm:ss")
@@ -71,18 +76,18 @@ class QianjiUri(private val billModel: AutoBillModel, config: AccountingConfig) 
             val accountNameTo = uri.getQueryParameter("accountname2") ?: ""
             val fee = uri.getQueryParameter("fee")?.toFloat() ?: 0.0F
             val extendData = uri.getQueryParameter("extendData") ?: ""
-            return AutoBillModel(
-                type = type,
-                amount = amount,
-                timeStamp = time,
-                remark = remark,
-                cateName = cateName,
-                bookName = bookName,
-                accountNameFrom = accountNameFrom,
-                accountNameTo = accountNameTo,
-                fee = fee,
-                extendData = extendData,
-            )
+            val billInfo = BillInfo()
+            billInfo.type = type
+            billInfo.money = amount.toInt()
+            billInfo.timeStamp = time
+            billInfo.remark = remark
+            billInfo.cateName = cateName
+            billInfo.bookName = bookName
+            billInfo.accountNameFrom = accountNameFrom
+            billInfo.accountNameTo = accountNameTo
+            billInfo.fee = fee.toInt()
+            billInfo.extendData = extendData
+            return billInfo
         }
     }
 
