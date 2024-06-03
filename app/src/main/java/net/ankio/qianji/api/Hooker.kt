@@ -109,6 +109,8 @@ abstract class Hooker : iHooker {
             for (hook in partHookers) {
                 try {
                     Log.i(HookMainApp.getTag(appName, packPageName), "正在初始化Hook:${hook.hookName}...")
+                    hook.hookUtils = hookUtils
+                    hook.autoApi = hookUtils.getAutoAccounting()
                     hook.onInit(classLoader, application)
                 } catch (e: Exception) {
                     e.message?.let { Log.e("AutoAccountingError", it) }

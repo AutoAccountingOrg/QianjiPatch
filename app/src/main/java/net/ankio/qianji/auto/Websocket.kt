@@ -10,11 +10,19 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 class Websocket(override val context: Context) : AutoWebsocket(context) {
     private var ws: WebSocket? = null
     private var client: OkHttpClient? = null
     private var webSocket: WebSocket? = null
+
+    init {
+        client =
+            OkHttpClient.Builder()
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .build()
+    }
 
     override fun close(
         code: Int,

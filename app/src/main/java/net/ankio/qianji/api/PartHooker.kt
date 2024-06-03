@@ -18,14 +18,16 @@ package net.ankio.qianji.api
 import android.content.Context
 import com.google.gson.Gson
 import de.robv.android.xposed.XposedBridge
+import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.dex.Dex
 import net.ankio.dex.model.ClazzMethod
 import net.ankio.qianji.HookMainApp
+import net.ankio.qianji.utils.HookUtils
 
 abstract class PartHooker(val hooker: Hooker) {
     abstract val hookName: String
-    protected val hookUtils = hooker.hookUtils
-    protected val autoApi = hookUtils.getAutoAccounting()
+    lateinit var hookUtils: HookUtils
+    lateinit var autoApi: AutoAccounting
 
     abstract fun onInit(
         classLoader: ClassLoader,
