@@ -7,11 +7,11 @@ import de.robv.android.xposed.XposedHelpers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import net.ankio.common.model.AutoBillModel
 import net.ankio.dex.model.ClazzField
 import net.ankio.dex.model.ClazzMethod
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
+import net.ankio.qianji.model.BillInfo
 import net.ankio.qianji.utils.QianjiBillType
 import net.ankio.qianji.utils.QianjiUri
 import net.ankio.qianji.utils.SyncUtils
@@ -58,11 +58,10 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
             object : XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     super.beforeHookedMethod(param)
-                    if (!UserUtils.isLogin(hooker))
-                        {
-                            hooker.hookUtils.toastError("未登录用户无法自动记账")
-                            return
-                        }
+                    if (!UserUtils.isLogin(hooker)) {
+                        hooker.hookUtils.toastError("未登录用户无法自动记账")
+                        return
+                    }
                     val intent = param.args?.get(0) as Intent
                     val data = intent.data ?: return
 
@@ -127,7 +126,7 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
     }
 
     suspend fun incomeReimbursement(
-        billModel: AutoBillModel,
+        billModel: BillInfo,
         classLoader: ClassLoader,
         context: Context,
         AddBillIntentAct: Any,
@@ -180,7 +179,7 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
         log("assetAccount:$assetAccount")
 
         // 报销金额，参数3
-        val amount = billModel.amount.toDouble()
+        val amount = billModel.money.toDouble()
 
         // 报销时间，参数4，类型是java.util.Calendar
 

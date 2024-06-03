@@ -50,7 +50,6 @@ abstract class Hooker : iHooker {
     abstract var partHookers: MutableList<PartHooker>
     lateinit var hookUtils: HookUtils
     lateinit var configSyncUtils: ConfigSyncUtils
-    private var TAG = "QianjiPatch"
     private lateinit var job: Job
 
     lateinit var scope: CoroutineScope
@@ -94,10 +93,9 @@ abstract class Hooker : iHooker {
         classLoader: ClassLoader?,
         application: Application,
     ) {
-        XposedBridge.log("[$TAG] Welcome to 钱迹补丁")
-        Log.i(TAG, "[$TAG] Welcome to 钱迹补丁")
+        XposedBridge.log("Welcome to 钱迹补丁")
         if (classLoader == null) {
-            XposedBridge.log("[AutoAccounting]" + this.appName + "hook失败: classloader 或 context = null")
+            XposedBridge.log(HookMainApp.getTag() + this.appName + "hook失败: classloader = null")
             return
         }
         hookUtils = HookUtils(application)

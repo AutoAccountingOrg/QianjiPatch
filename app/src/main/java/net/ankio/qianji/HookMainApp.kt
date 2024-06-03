@@ -8,32 +8,36 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.hooks.QianjiHooker
 
-
-class HookMainApp : IXposedHookLoadPackage,IXposedHookZygoteInit {
-
+class HookMainApp : IXposedHookLoadPackage, IXposedHookZygoteInit {
     companion object {
-        fun getTag(name:String? = null,clazz:String?=null): String {
-            var tag: String = if(name===null){
-                "[Qianji]"
-            }else{
-                "[${name}]"
-            }
-            tag += if(clazz===null){
-                "[None]"
-            }else{
-                "[${clazz}]"
-            }
+        fun getTag(
+            name: String? = null,
+            clazz: String? = null,
+        ): String {
+            var tag: String =
+                if (name === null)
+                    {
+                        "[钱迹补丁]"
+                    } else {
+                    "[$name]"
+                }
+            tag +=
+                if (clazz === null)
+                    {
+                        "[None]"
+                    } else {
+                    "[$clazz]"
+                }
             return tag
         }
 
         var modulePath = ""
-
     }
 
-    private var mHookList: MutableList<Hooker> = arrayListOf(
-        QianjiHooker()
-    )
-
+    private var mHookList: MutableList<Hooker> =
+        arrayListOf(
+            QianjiHooker(),
+        )
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
@@ -46,12 +50,10 @@ class HookMainApp : IXposedHookLoadPackage,IXposedHookZygoteInit {
                 XposedBridge.log(e.message)
                 hook.stop()
             }
-
         }
     }
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam?) {
-        modulePath = startupParam?.modulePath?:""
+        modulePath = startupParam?.modulePath ?: ""
     }
-
 }

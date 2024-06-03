@@ -3,22 +3,15 @@ package net.ankio.qianji.utils
 import android.content.Context
 import android.content.Intent
 import com.google.gson.Gson
+import com.google.gson.JsonArray
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import net.ankio.auto.sdk.AutoAccounting
-import net.ankio.auto.sdk.exception.AutoAccountingException
-import net.ankio.common.constant.AssetType
-import net.ankio.common.constant.BillType
-import net.ankio.common.constant.Currency
-import net.ankio.common.model.AssetsModel
-import net.ankio.common.model.AutoBillModel
-import net.ankio.common.model.BillModel
-import net.ankio.common.model.BookModel
-import net.ankio.common.model.CategoryModel
 import net.ankio.qianji.api.Hooker
+import net.ankio.qianji.model.BillInfo
+import net.ankio.qianji.model.BillModel
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import kotlin.coroutines.resume
@@ -28,6 +21,8 @@ import kotlin.coroutines.suspendCoroutine
  * 用于将钱迹的数据同步给自动记账
  */
 class SyncUtils(val context: Context, private val classLoader: ClassLoader, private val hooker: Hooker) {
+    private val api = hooker.hookUtils.getAutoAccounting()
+
     /**
      * 账本管理
      */
@@ -233,7 +228,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
     suspend fun books() =
         withContext(Dispatchers.IO) {
             val list = XposedHelpers.callMethod(bookManager, "getAllBooks", true, 1) as List<*>
-            val bookList = arrayListOf<BookModel>()
+            val bookList = arrayListOf<HashMap<String, Any>>()
 
             /**
              * [
@@ -254,35 +249,35 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
              */
             list.forEach { book ->
                 if (bookClazz.isInstance(book)) {
-                    val bookModel = BookModel()
+                    val bookModel = HashMap<String, Any>()
                     // Get all fields of the Book class
                     val fields = bookClazz.declaredFields
                     for (field in fields) {
                         field.isAccessible = true
                         val value = field.get(book)
                         when (field.name) {
-                            "name" -> bookModel.name = value as String
-                            "cover" -> bookModel.icon = value as String
+                            "name" -> bookModel["name"] = value as String
+                            "cover" -> bookModel["icon"] = value as String
                             "bookId" -> {
                                 val hashMap =
                                     withContext(Dispatchers.Main) {
                                         getCategoryList(value as Long)
                                     }
-                                val arrayList = arrayListOf<CategoryModel>()
+                                val arrayList = arrayListOf<HashMap<String, Any>>()
                                 convertCategoryToModel(
                                     hashMap["list1"] as List<Any>,
-                                    BillType.Expend,
+                                    1, // 支出
                                 ).let {
                                     arrayList.addAll(it)
                                 }
                                 convertCategoryToModel(
                                     hashMap["list2"] as List<Any>,
-                                    BillType.Income,
+                                    2, // 收入
                                 ).let {
                                     arrayList.addAll(it)
                                 }
 
-                                bookModel.category = arrayList
+                                bookModel["category"] = arrayList
                             }
                         }
                     }
@@ -293,9 +288,15 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 }
             }
 
-            XposedBridge.log("同步账本信息:${Gson().toJson(bookList)}")
-
-            AutoAccounting.setBooks(context, Gson().toJson(bookList))
+            val sync = Gson().toJson(bookList)
+            val md5 = hooker.hookUtils.md5(sync)
+            val server = api.getHash("sync_books_md5")
+            if (server == md5) {
+                XposedBridge.log("账本信息未发生变化，无需同步")
+                return@withContext
+            }
+            XposedBridge.log("同步账本信息:$sync")
+            api.setBooks(sync, md5)
         }
 
     /**
@@ -303,16 +304,14 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
      */
     private fun convertCategoryToModel(
         list: List<*>,
-        type: BillType,
-    ): ArrayList<CategoryModel> {
-        val categories = arrayListOf<CategoryModel>()
+        type: Int,
+    ): ArrayList<HashMap<String, Any>> {
+        val categories = arrayListOf<HashMap<String, Any>>()
         list.forEach {
             if (it == null) return@forEach
             val category = it
-            val model =
-                CategoryModel(
-                    type = type.value,
-                )
+            val model = HashMap<String, Any>()
+            model["type"] = type
             val fields = category::class.java.declaredFields
             for (field in fields) {
                 field.isAccessible = true
@@ -394,11 +393,11 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                  * ]
                  */
                 when (field.name) {
-                    "name" -> model.name = value as String
-                    "icon" -> model.icon = value as String
-                    "id" -> model.id = (value as Long).toString()
-                    "parentId" -> model.parent = (value as Long).toString()
-                    "sort" -> model.sort = value as Int
+                    "name" -> model["name"] = value as String
+                    "icon" -> model["icon"] = value as String
+                    "id" -> model["id"] = (value as Long).toString()
+                    "parentId" -> model["parent"] = (value as Long).toString()
+                    "sort" -> model["sort"] = value as Int
                     "subList" -> {
                         val subList = value as List<*>
                         //    XposedBridge.log("子分类:${Gson().toJson(subList)}")
@@ -421,11 +420,11 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 withContext(Dispatchers.Main) {
                     getAssetsList()
                 }
-            val assets = arrayListOf<AssetsModel>()
+            val assets = arrayListOf<HashMap<String, Any>>()
 
             accounts.forEach {
                 val asset = it!!
-                val model = AssetsModel()
+                val model = HashMap<String, Any>()
                 // XposedBridge.log("账户信息:${Gson().toJson(asset)}")
                 val fields = asset::class.java.declaredFields
 
@@ -454,42 +453,49 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 //    public static final int Type_Invest = 4;
                 //    public static final int Type_Money = 1;
                 //    public static final int Type_Recharge = 3;
-                model.type =
+                model["type"] = // 自动记账的资产类型只有 普通（1）、债权人（2）、借款人（3）
                     when (type) {
-                        1 -> AssetType.CASH
-                        2 -> AssetType.CREDIT
-                        3 -> AssetType.RECHARGE
-                        4 -> AssetType.INVEST
+                        1 -> 1
+                        2 -> 1
+                        3 -> 1
+                        4 -> 1
                         5 ->
                             when (stype) {
-                                51 -> AssetType.DEBT_EXPAND
-                                else -> AssetType.DEBT_INCOME
+                                51 -> 2
+                                else -> 3
                             }
 
-                        else -> AssetType.APP
+                        else -> 1
                     }
 
                 for (field in fields) {
                     field.isAccessible = true
                     val value = field.get(asset) ?: continue
                     when (field.name) {
-                        "name" -> model.name = value as String
-                        "icon" -> model.icon = value as String
-                        "sort" -> model.sort = value as Int
-                        "currency" -> model.currency = Currency.valueOf(value as String)
-                        "loanInfo" -> model.extra = Gson().toJson(value)
+                        "name" -> model["name"] = value as String
+                        "icon" -> model["icon"] = value as String
+                        "sort" -> model["sort"] = value as Int
+                        "currency" -> model["currency"] = value as String
+                        "loanInfo" -> model["extra"] = Gson().toJson(value)
 
                         "extra" -> {
-                            if (model.extra.isEmpty() || model.extra == "{}") {
-                                model.extra = Gson().toJson(value)
+                            if (!model.containsKey("extra") || model["extra"] == "{}") {
+                                model["extra"] = Gson().toJson(value)
                             }
                         }
                     }
                 }
                 assets.add(model)
             }
+            val sync = Gson().toJson(assets)
+            val md5 = hooker.hookUtils.md5(sync)
+            val server = api.getHash("sync_assets_md5")
+            if (server == md5) {
+                XposedBridge.log("资产信息未发生变化，无需同步")
+                return@withContext
+            }
             XposedBridge.log("同步账户信息:${Gson().toJson(assets)}")
-            AutoAccounting.setAssets(context, Gson().toJson(assets))
+            api.setAssets(sync, md5)
         }
 
     /**
@@ -540,17 +546,22 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
              *     "type": 5,
              *     "updateTimeInSec": 0,
              *     "userid": "200104405e109647c18e9"
-             * }
-             */
-            val bx = Gson().toJson(convertBills(bxList, books))
-            XposedBridge.log("同步报销账单:$bx")
-            AutoAccounting.setBills(context, bx, BillType.ExpendReimbursement.name)
+             * }*/
+
+            val sync = Gson().toJson(convertBills(bxList, books))
+            val md5 = hooker.hookUtils.md5(sync)
+            val server = api.getHash("sync_bills_md5")
+            if (server == md5) {
+                XposedBridge.log("资产信息未发生变化，无需同步")
+                return@withContext
+            }
+            api.setBills(sync)
         }
 
     suspend fun billsFromAuto() =
         withContext(Dispatchers.IO) {
             runCatching {
-                val bills = Gson().fromJson(AutoAccounting.getBills(context), List::class.java) as List<*>
+                val bills = Gson().fromJson(api.getBills() as JsonArray, List::class.java) as List<*>
                 XposedBridge.log("同步自动记账账单:$bills")
                 if (bills.isEmpty()) return@runCatching
                 withContext(Dispatchers.Main) {
@@ -562,7 +573,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                         hooker.hookUtils.toast("正在从自动记账同步账单（$index/${bills.size}）")
                     }
                     val gson = Gson()
-                    val bill = gson.fromJson(gson.toJson(it), AutoBillModel::class.java)
+                    val bill = gson.fromJson(gson.toJson(it), BillInfo::class.java)
                     // 构建钱迹账单
                     val uri = QianjiUri(bill, hooker.configSyncUtils.config).getUri()
                     val intent = Intent(Intent.ACTION_VIEW, uri)
@@ -587,7 +598,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
         val bills = arrayListOf<BillModel>()
         anyBills.forEach {
             val bill = BillModel()
-            bill.type = BillType.ExpendReimbursement
+            bill.type = 4
             val fields = billClazz.declaredFields
             for (field in fields) {
                 field.isAccessible = true

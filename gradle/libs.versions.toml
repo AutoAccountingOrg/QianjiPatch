@@ -1,5 +1,5 @@
 [versions]
-agp = "8.5.0-alpha06"
+agp = "8.6.0-alpha04"
 dexlib2 = "2.5.2"
 kotlin = "1.9.21"
 coreKtx = "1.12.0"
@@ -11,6 +11,7 @@ material = "1.11.0"
 sdk = "ff4d0c5e27"
 toaster = "12.6"
 xposed = "82"
+okhttp = "4.12.0"
 kotlinxCoroutinesAndroid = "1.8.0"
 gson = "2.10.1"
 jetbrainsKotlinJvm = "1.9.21"
@@ -23,6 +24,7 @@ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "j
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+okhttp = { module = "com.squareup.okhttp3:okhttp" , version.ref = "okhttp"}
 sdk = { module = "com.github.AutoAccountingOrg.AutoAccounting:sdk", version.ref = "sdk" }
 toaster = { module = "com.github.getActivity:Toaster", version.ref = "toaster" }
 xposed = { module = "de.robv.android.xposed:api", version.ref = "xposed" }
@@ -32,4 +34,5 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
+android-library = { id = "com.android.library", version.ref = "agp" }
 

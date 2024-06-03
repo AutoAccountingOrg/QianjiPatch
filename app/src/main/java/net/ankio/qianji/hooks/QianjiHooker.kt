@@ -12,6 +12,7 @@ import net.ankio.dex.model.ClazzField
 import net.ankio.dex.model.ClazzMethod
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
+import net.ankio.qianji.auto.Websocket
 
 class QianjiHooker : Hooker() {
     override val packPageName: String = "com.mutangtech.qianji"
@@ -187,12 +188,17 @@ class QianjiHooker : Hooker() {
             ),
         )
 
+    private fun initAutoAccounting(context: Context) {
+        hookUtils.getAutoAccounting().init(Websocket(context))
+    }
+
     override fun hookLoadPackage(
         classLoader: ClassLoader,
         context: Context,
     ): Boolean {
         hookUtils.addAutoContext(context)
         Toaster.init(context as Application)
+        initAutoAccounting(context)
         val code = hookUtils.getVersionCode()
         val adaptationVersion = hookUtils.readData("adaptation").toIntOrNull() ?: 0
         if (adaptationVersion == code && code != 0) {

@@ -2,34 +2,36 @@ package net.ankio.qianji.utils
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
-import android.util.Log
 import android.widget.Toast
 import com.hjq.toast.ToastParams
 import com.hjq.toast.Toaster
 import com.hjq.toast.style.CustomToastStyle
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
+import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
+import java.math.BigInteger
+import java.security.MessageDigest
 
 class HookUtils(private val mContext: Context) {
-    private val TAG = "QianjiPatch"
+    private val tag = "QianjiPatch"
+    private val autoAccounting: AutoAccounting = AutoAccounting()
+
+    init {
+        addAutoContext(mContext)
+    }
+
+    fun getAutoAccounting(): AutoAccounting {
+        return autoAccounting
+    }
 
     fun getVersionCode(): Int {
-        var appVersionCode: Long = 0
-        try {
-            val packageInfo: PackageInfo =
-                mContext
-                    .packageManager
-                    .getPackageInfo(mContext.packageName, 0)
-            appVersionCode =
-                packageInfo.longVersionCode
-        } catch (e: PackageManager.NameNotFoundException) {
-            Log.e("", e.message!!)
+        return runCatching {
+            mContext.packageManager.getPackageInfo(mContext.packageName, 0).versionCode
+        }.getOrElse {
+            0
         }
-        return appVersionCode.toInt()
     }
 
     fun writeData(
@@ -37,7 +39,7 @@ class HookUtils(private val mContext: Context) {
         value: String,
     ) {
         val sharedPreferences: SharedPreferences =
-            mContext.getSharedPreferences(TAG, Context.MODE_PRIVATE) // 私有数据
+            mContext.getSharedPreferences(tag, Context.MODE_PRIVATE) // 私有数据
 
         val editor = sharedPreferences.edit() // 获取编辑器
 
@@ -48,7 +50,7 @@ class HookUtils(private val mContext: Context) {
 
     fun readData(key: String): String {
         val sharedPreferences: SharedPreferences =
-            mContext.getSharedPreferences(TAG, Context.MODE_PRIVATE) // 私有数据
+            mContext.getSharedPreferences(tag, Context.MODE_PRIVATE) // 私有数据
         return sharedPreferences.getString(key, "") ?: ""
     }
 
@@ -89,5 +91,10 @@ class HookUtils(private val mContext: Context) {
         params.text = msg
         params.style = CustomToastStyle(R.layout.toast_error)
         Toaster.show(params)
+    }
+
+    fun md5(data: String): String {
+        val md = MessageDigest.getInstance("MD5")
+        return BigInteger(1, md.digest(data.toByteArray())).toString(16).padStart(32, '0')
     }
 }

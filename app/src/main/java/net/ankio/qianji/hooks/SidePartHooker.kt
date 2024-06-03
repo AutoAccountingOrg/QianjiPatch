@@ -18,20 +18,17 @@ import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
-import com.google.gson.Gson
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import net.ankio.auto.sdk.AutoAccounting
-import net.ankio.auto.sdk.exception.AutoAccountingException
 import net.ankio.qianji.BuildConfig
-import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
+import net.ankio.qianji.auto.Websocket
 import net.ankio.qianji.databinding.ItemMenuBinding
 import net.ankio.qianji.databinding.MenuListBinding
 import net.ankio.qianji.utils.SyncUtils
@@ -74,17 +71,8 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
 
                     syncUtils = SyncUtils.getInstance(activity, classLoader, hooker)
                     // 判断自动记账是否需要加载
-                    val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
+                    val isAutoAccounting = autoApi.isConnected()
                     XposedBridge.log("$clazz onCreate  => isAutoAccounting ? $isAutoAccounting")
-                    if (isAutoAccounting == "true") {
-                        hooker.scope.launch {
-                            runCatching {
-                                tryStartAutoAccounting(activity)
-                            }.onFailure {
-                                XposedBridge.log(it)
-                            }
-                        }
-                    }
                 }
             },
         )
@@ -117,44 +105,10 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                         }
                         val resultData = intent.getStringExtra("token")
                         // 调用自动记账存储
-                        try {
-                            AutoAccounting.setToken(activity, resultData!!)
-
-                            // 授权成功尝试重启
-                            hooker.scope.launch {
-                                runCatching {
-                                    tryStartAutoAccounting(activity)
-                                }.onFailure {
-                                    XposedBridge.log(it)
-                                    if (::autoAccounting.isInitialized) {
-                                        withContext(Dispatchers.Main) {
-                                            autoAccounting.isChecked = false
-                                        }
-                                    }
-                                    Toast.makeText(
-                                        activity,
-                                        "自动记账授权启动失败",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                    // 又失败了，再走一遍流程
-                                    onAutoAccountingError(it as AutoAccountingException, activity)
-                                }.onSuccess {
-                                    if (::autoAccounting.isInitialized) {
-                                        withContext(Dispatchers.Main) {
-                                            autoAccounting.isChecked = true
-                                        }
-                                    }
-                                    hooker.hookUtils.writeData("isAutoAccounting", "true")
-                                    syncBillsFromAutoAccounting(activity)
-                                }
-                            }
-                        } catch (e: AutoAccountingException) {
-                            e.printStackTrace()
-                            Toast.makeText(
-                                activity,
-                                "数据为空，可能是因为自动记账服务未启动",
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                        hooker.scope.launch {
+                            autoApi.setToken(resultData!!)
+                            autoApi.init(Websocket(context))
+                            syncBillsFromAutoAccounting(activity)
                         }
                     }
                 }
@@ -169,9 +123,9 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                     super.afterHookedMethod(param)
                     val activity = param!!.thisObject as Activity
                     // 如果自动记账功能打开，从自动记账同步账单
-                    val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
+                    val isAutoAccounting = autoApi.isConnected()
                     XposedBridge.log("$clazz onResume => isAutoAccounting ? $isAutoAccounting")
-                    if (isAutoAccounting == "true") {
+                    if (isAutoAccounting) {
                         hooker.scope.launch {
                             syncBillsFromAutoAccounting(activity)
                         }
@@ -205,11 +159,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                     val linearLayout =
                         getViewById(obj, classLoader, "main_drawer_content_layout") as LinearLayout
                     runCatching {
-                        XposedHelpers.callMethod(
-                            activity.resources.assets,
-                            "addAssetPath",
-                            HookMainApp.modulePath,
-                        )
+                        hookUtils.addAutoContext(activity)
                         // 找到了obj里面的name字段
                         addSettingMenu(linearLayout, activity, classLoader)
                     }.onFailure {
@@ -218,51 +168,6 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 }
             },
         )
-    }
-
-    private suspend fun onAutoAccountingError(
-        it: AutoAccountingException,
-        context: Activity,
-    ) = withContext(Dispatchers.Main) {
-        when (it.code) {
-            AutoAccountingException.CODE_SERVER_AUTHORIZE -> {
-                XposedBridge.log("自动记账授权失败:${it.message}")
-                // 前往自动记账授权
-                val intent = Intent("net.ankio.auto.ACTION_REQUEST_AUTHORIZATION")
-                // 设置包名，用于自动记账对目标app进行检查
-                intent.putExtra("packageName", hooker.packPageName)
-                try {
-                    context.startActivityForResult(intent, codeAuth)
-                } catch (e: ActivityNotFoundException) {
-                    // 没有自动记账，需要引导用户下载自动记账App
-                    XposedBridge.log(e)
-                    onGetAutoApplication(context)
-                }
-            }
-            AutoAccountingException.CODE_SERVER_UN_INIT -> {
-                XposedBridge.log("自动记账未初始化:${it.message}")
-                it.printStackTrace()
-            }
-            AutoAccountingException.CODE_SERVER_ERROR -> {
-                XposedBridge.log("自动记账服务未启动:${it.message}")
-                var findAuto = false
-                arrayOf(
-                    "xposed",
-                    "help",
-                ).forEach {
-                    if (findAuto)return@forEach
-                    val packageName = "net.ankio.auto.$it" // 替换为目标应用的包名
-                    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-                    if (launchIntent != null) {
-                        context.startActivity(launchIntent)
-                        findAuto = true
-                    }
-                }
-                if (!findAuto) {
-                    onGetAutoApplication(context)
-                }
-            }
-        }
     }
 
     private fun onGetAutoApplication(context: Activity) {
@@ -298,24 +203,9 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                     log("从自动记账同步账单")
                     syncUtils.billsFromAuto()
                 }.onFailure {
-                    if (it is AutoAccountingException) {
-                        onAutoAccountingError(it, activity)
-                    }
                     XposedBridge.log(it)
                 }
             }
-        }
-
-    /**
-     * 尝试启动自动记账服务
-     * @throws AutoAccountingException
-     */
-    private suspend fun tryStartAutoAccounting(activity: Activity) =
-        withContext(Dispatchers.IO) {
-            AutoAccounting.init(
-                activity,
-                Gson().toJson(hooker.configSyncUtils.config),
-            )
         }
 
     /**
@@ -333,8 +223,6 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
             textView.text = vipName
         }
     }
-
-    private lateinit var autoAccounting: Switch
 
     private lateinit var rClass: Class<*>
 
@@ -399,11 +287,11 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 }
             }
 
-            binding.autoAccounting.isChecked = isAutoAccounting == "true"
+            binding.autoAccounting.isChecked = autoApi.isConnected()
 
             binding.autoAccounting.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (!isChecked) {
-                    hooker.hookUtils.writeData("isAutoAccounting", "false")
+                    autoApi.setToken("")
                     return@setOnCheckedChangeListener
                 }
                 // binding.autoAccounting.isChecked = false

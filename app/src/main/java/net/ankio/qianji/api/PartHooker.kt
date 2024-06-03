@@ -24,6 +24,8 @@ import net.ankio.qianji.HookMainApp
 
 abstract class PartHooker(val hooker: Hooker) {
     abstract val hookName: String
+    protected val hookUtils = hooker.hookUtils
+    protected val autoApi = hookUtils.getAutoAccounting()
 
     abstract fun onInit(
         classLoader: ClassLoader,
