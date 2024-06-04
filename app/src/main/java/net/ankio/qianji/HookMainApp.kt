@@ -10,27 +10,6 @@ import net.ankio.qianji.hooks.QianjiHooker
 
 class HookMainApp : IXposedHookLoadPackage, IXposedHookZygoteInit {
     companion object {
-        fun getTag(
-            name: String? = null,
-            clazz: String? = null,
-        ): String {
-            var tag: String =
-                if (name === null)
-                    {
-                        "[钱迹补丁]"
-                    } else {
-                    "[$name]"
-                }
-            tag +=
-                if (clazz === null)
-                    {
-                        "[None]"
-                    } else {
-                    "[$clazz]"
-                }
-            return tag
-        }
-
         var modulePath = ""
     }
 

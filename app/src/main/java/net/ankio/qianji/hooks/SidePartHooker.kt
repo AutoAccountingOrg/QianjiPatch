@@ -28,9 +28,10 @@ import net.ankio.qianji.BuildConfig
 import net.ankio.qianji.R
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
-import net.ankio.qianji.auto.Websocket
 import net.ankio.qianji.databinding.ItemMenuBinding
 import net.ankio.qianji.databinding.MenuListBinding
+import net.ankio.qianji.server.model.AccountingConfig
+import net.ankio.qianji.utils.HookUtils
 import net.ankio.qianji.utils.SyncUtils
 import net.ankio.qianji.utils.UserUtils
 
@@ -71,7 +72,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
 
                     syncUtils = SyncUtils.getInstance(activity, classLoader, hooker)
                     // 判断自动记账是否需要加载
-                    val isAutoAccounting = autoApi.isConnected()
+                    val isAutoAccounting = HookUtils.getService().isConnected()
                     XposedBridge.log("$clazz onCreate  => isAutoAccounting ? $isAutoAccounting")
                 }
             },
@@ -104,10 +105,11 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                             return
                         }
                         val resultData = intent.getStringExtra("token")
+                        log("onActivityResult => token: $resultData")
                         // 调用自动记账存储
-                        hooker.scope.launch {
-                            autoApi.setToken(resultData!!)
-                            autoApi.init(Websocket(context))
+                        HookUtils.getScope().launch {
+                            HookUtils.getService().putToken(resultData!!)
+                            HookUtils.getService().connect()
                             syncBillsFromAutoAccounting(activity)
                         }
                     }
@@ -123,10 +125,10 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                     super.afterHookedMethod(param)
                     val activity = param!!.thisObject as Activity
                     // 如果自动记账功能打开，从自动记账同步账单
-                    val isAutoAccounting = autoApi.isConnected()
+                    val isAutoAccounting = HookUtils.getService().isConnected()
                     XposedBridge.log("$clazz onResume => isAutoAccounting ? $isAutoAccounting")
                     if (isAutoAccounting) {
-                        hooker.scope.launch {
+                        HookUtils.getScope().launch {
                             syncBillsFromAutoAccounting(activity)
                         }
                     }
@@ -159,7 +161,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                     val linearLayout =
                         getViewById(obj, classLoader, "main_drawer_content_layout") as LinearLayout
                     runCatching {
-                        hookUtils.addAutoContext(activity)
+                        HookUtils.addAutoContext(activity)
                         // 找到了obj里面的name字段
                         addSettingMenu(linearLayout, activity, classLoader)
                     }.onFailure {
@@ -171,7 +173,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
     }
 
     private fun onGetAutoApplication(context: Activity) {
-        hooker.hookUtils.toastError("未找到自动记账，请从Github下载自动记账App")
+        HookUtils.toastError("未找到自动记账，请从Github下载自动记账App")
         // 跳转自动记账下载页面：https://github.com/AutoAccountingOrg/AutoAccounting/
         val url = "https://github.com/AutoAccountingOrg/AutoAccounting/"
         val intentAuto = Intent(Intent.ACTION_VIEW)
@@ -179,17 +181,17 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
         try {
             context.startActivity(intentAuto)
         } catch (e: ActivityNotFoundException) {
-            hooker.hookUtils.toastError("没有安装任何支持的浏览器客户端")
+            HookUtils.toastError("没有安装任何支持的浏览器客户端")
         }
     }
 
     private suspend fun syncBillsFromAutoAccounting(activity: Activity) =
         withContext(Dispatchers.IO) {
             if (!UserUtils.isLogin(hooker)) {
-                hooker.hookUtils.toastError("未登录用户不支持同步数据")
+                HookUtils.toastError("未登录用户不支持同步数据")
                 return@withContext
             }
-            hooker.scope.launch {
+            HookUtils.getScope().launch {
                 runCatching {
                     log("同步账本")
                     syncUtils.books()
@@ -215,7 +217,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
         obj: FrameLayout,
         classLoader: ClassLoader?,
     ) {
-        val vipName = hooker.hookUtils.readData("vipName")
+        val vipName = HookUtils.readData("vipName")
         if (vipName !== "") {
             // 调用 findViewById 并转换为 TextView
             val textView = getViewById(obj, classLoader!!, "settings_vip_badge") as TextView
@@ -267,8 +269,6 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
             val menuListView = binding.root
             menuListView.setBackgroundColor(backgroundColor)
             // 弹窗AlertDialog
-            val isAutoAccounting = hooker.hookUtils.readData("isAutoAccounting")
-
             // 遍历binding的所有属性，所有父类型是view的设置背景色和前景色
             binding::class.java.declaredFields.forEach {
                 if (View::class.java.isAssignableFrom(it.type)) {
@@ -287,11 +287,11 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 }
             }
 
-            binding.autoAccounting.isChecked = autoApi.isConnected()
+            binding.autoAccounting.isChecked = HookUtils.getService().isConnected()
 
             binding.autoAccounting.setOnCheckedChangeListener { buttonView, isChecked ->
                 if (!isChecked) {
-                    autoApi.setToken("")
+                    HookUtils.getService().putToken("")
                     return@setOnCheckedChangeListener
                 }
                 // binding.autoAccounting.isChecked = false
@@ -306,26 +306,29 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 }
             }
 
-            binding.editTextText.setText(hooker.hookUtils.readData("vipName"))
+            binding.editTextText.setText(HookUtils.readData("vipName"))
             binding.editTextText.setOnEditorActionListener { v, actionId, event ->
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    hooker.hookUtils.writeData("vipName", v.text.toString())
+                    HookUtils.writeData("vipName", v.text.toString())
                     setVipName(linearLayout.parent as FrameLayout, classLoader)
                 }
                 false
             }
 
-            val config = hooker.configSyncUtils.config
+            val config = AccountingConfig.getConfig()
             config::class.java.declaredFields.forEach {
                 it.isAccessible = true
+                if (it.type !== Boolean::class.java) {
+                    return@forEach
+                }
                 val name = it.name
                 val value = it.get(config) as Boolean
                 val switch = binding::class.java.getDeclaredField(name).get(binding) as Switch
                 switch.isChecked = value
                 switch.setOnCheckedChangeListener { buttonView, isChecked ->
                     it.set(config, isChecked)
-                    hooker.scope.launch {
-                        hooker.configSyncUtils.saveAndSync()
+                    HookUtils.getScope().launch {
+                        AccountingConfig.saveAndSync(config)
                     }
                 }
             }

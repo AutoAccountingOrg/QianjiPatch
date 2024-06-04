@@ -1,8 +1,8 @@
 package net.ankio.qianji.utils
 
 import android.net.Uri
-import net.ankio.qianji.model.AccountingConfig
-import net.ankio.qianji.model.BillInfo
+import net.ankio.qianji.server.model.AccountingConfig
+import net.ankio.qianji.server.model.BillInfo
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -52,7 +52,7 @@ class QianjiUri(private val billModel: BillInfo, config: AccountingConfig) {
     }
 
     companion object {
-        fun dateToStamp(
+        private fun dateToStamp(
             time: String,
             format: String,
         ): Long {

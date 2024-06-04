@@ -1,6 +1,26 @@
-package net.ankio.qianji.model
+/*
+ * Copyright (C) 2024 ankio(ankio@ankio.net)
+ * Licensed under the Apache License, Version 3.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-3.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *   limitations under the License.
+ */
+package net.ankio.qianji.server.model
+
+import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import net.ankio.qianji.utils.HookUtils
 
 class BillInfo {
+    // 账单列表
     var id = 0
 
     /**
@@ -93,4 +113,17 @@ class BillInfo {
      * 备注信息
      */
     var remark: String = ""
+
+    companion object {
+        suspend fun update(id:Int) = withContext(Dispatchers.IO) {
+            HookUtils.getService().sendMsg("bill/sync/update", hashMapOf("id" to id))
+        }
+
+        suspend fun getSyncBills(): Array<BillInfo> {
+            val data = HookUtils.getService().sendMsg("bill/sync/list",null)
+            return data as Array<BillInfo>
+        }
+
+
+    }
 }

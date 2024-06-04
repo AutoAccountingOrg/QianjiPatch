@@ -1,6 +1,9 @@
-package net.ankio.qianji.model
+package net.ankio.qianji.server.model
 
-class BillModel(
+import kotlinx.coroutines.launch
+import net.ankio.qianji.utils.HookUtils
+
+data class AppBillInfo(
     var amount: Double = 0.0, // 金额
     var time: Long = 0, // 时间
     var remark: String = "", // 备注
@@ -10,4 +13,12 @@ class BillModel(
     var category: String = "", // 分类名称
     var accountFrom: String = "", // 转出账户名称
     var accountTo: String = "", // 转入账户名称
-)
+     ){
+    companion object{
+        fun sync2server(string: String){
+            HookUtils.getScope().launch {
+                HookUtils.getService().sendMsg("app/bill/add",hashMapOf("bills" to string))
+            }
+        }
+    }
+}

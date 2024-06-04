@@ -1,5 +1,6 @@
 package net.ankio.qianji.utils
 
+import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.widget.Toast
@@ -8,38 +9,58 @@ import com.hjq.toast.Toaster
 import com.hjq.toast.style.CustomToastStyle
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
-import net.ankio.auto.sdk.AutoAccounting
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.R
+import net.ankio.qianji.server.AutoServer
 import java.math.BigInteger
 import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-class HookUtils(private val mContext: Context) {
-    private val tag = "QianjiPatch"
-    private val autoAccounting: AutoAccounting = AutoAccounting()
+object HookUtils {
+    private lateinit var application: Application
+    private lateinit var server: AutoServer
+    private val job = Job()
+    private val scope = CoroutineScope(Dispatchers.IO + job)
 
-    init {
-        addAutoContext(mContext)
+    fun getJob(): Job {
+        return job
     }
 
-    fun getAutoAccounting(): AutoAccounting {
-        return autoAccounting
+    fun getScope(): CoroutineScope {
+        return scope
+    }
+
+    fun getApplication(): Application {
+        return application
+    }
+
+    fun setApplication(application: Application) {
+        this.application = application
+        addAutoContext(application)
+        server = AutoServer()
     }
 
     fun getVersionCode(): Int {
         return runCatching {
-            mContext.packageManager.getPackageInfo(mContext.packageName, 0).versionCode
+            application.packageManager.getPackageInfo(application.packageName, 0).versionCode
         }.getOrElse {
             0
         }
     }
+
+    private val tag = "autoAccountingConfig"
 
     fun writeData(
         key: String,
         value: String,
     ) {
         val sharedPreferences: SharedPreferences =
-            mContext.getSharedPreferences(tag, Context.MODE_PRIVATE) // 私有数据
+            application.getSharedPreferences(tag, Context.MODE_PRIVATE) // 私有数据
 
         val editor = sharedPreferences.edit() // 获取编辑器
 
@@ -50,7 +71,7 @@ class HookUtils(private val mContext: Context) {
 
     fun readData(key: String): String {
         val sharedPreferences: SharedPreferences =
-            mContext.getSharedPreferences(tag, Context.MODE_PRIVATE) // 私有数据
+            application.getSharedPreferences(tag, Context.MODE_PRIVATE) // 私有数据
         return sharedPreferences.getString(key, "") ?: ""
     }
 
@@ -60,13 +81,15 @@ class HookUtils(private val mContext: Context) {
     ) {
         if (log == null) {
             XposedBridge.log(prefix)
+            Logger.i(prefix)
         } else {
             XposedBridge.log("$prefix: $log")
+            Logger.i("$prefix: $log")
         }
     }
 
     fun toast(msg: String) {
-        Toast.makeText(mContext, msg, Toast.LENGTH_LONG).show()
+        Toast.makeText(application, msg, Toast.LENGTH_LONG).show()
     }
 
     fun addAutoContext(context: Context) {
@@ -96,5 +119,14 @@ class HookUtils(private val mContext: Context) {
     fun md5(data: String): String {
         val md = MessageDigest.getInstance("MD5")
         return BigInteger(1, md.digest(data.toByteArray())).toString(16).padStart(32, '0')
+    }
+
+    fun getService(): AutoServer {
+        return server
+    }
+
+    fun currentTimeToDateTime(): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        return sdf.format(Date(System.currentTimeMillis()))
     }
 }

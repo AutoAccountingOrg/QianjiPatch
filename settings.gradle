@@ -25,4 +25,3 @@ dependencyResolutionManagement {
 rootProject.name = "qianji_patch"
 include ':app'
 include ':dex'
-include ':sdk'

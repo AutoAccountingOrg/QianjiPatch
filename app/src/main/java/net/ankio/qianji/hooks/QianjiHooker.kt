@@ -12,7 +12,7 @@ import net.ankio.dex.model.ClazzField
 import net.ankio.dex.model.ClazzMethod
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
-import net.ankio.qianji.auto.Websocket
+import net.ankio.qianji.utils.HookUtils
 
 class QianjiHooker : Hooker() {
     override val packPageName: String = "com.mutangtech.qianji"
@@ -188,27 +188,25 @@ class QianjiHooker : Hooker() {
             ),
         )
 
-    private fun initAutoAccounting(context: Context) {
-        hookUtils.getAutoAccounting().init(Websocket(context))
-    }
+
 
     override fun hookLoadPackage(
         classLoader: ClassLoader,
         context: Context,
     ): Boolean {
-        hookUtils.addAutoContext(context)
+        HookUtils.addAutoContext(context)
         Toaster.init(context as Application)
-        initAutoAccounting(context)
-        val code = hookUtils.getVersionCode()
-        val adaptationVersion = hookUtils.readData("adaptation").toIntOrNull() ?: 0
+        HookUtils.getService().connect()
+        val code = HookUtils.getVersionCode()
+        val adaptationVersion = HookUtils.readData("adaptation").toIntOrNull() ?: 0
         if (adaptationVersion == code && code != 0) {
             runCatching {
-                clazz = Gson().fromJson(hookUtils.readData("clazz"), HashMap::class.java) as HashMap<String, String>
+                clazz = Gson().fromJson(HookUtils.readData("clazz"), HashMap::class.java) as HashMap<String, String>
                 if (clazz.size != clazzRule.size) {
                     throw Exception("适配失败")
                 }
             }.onFailure {
-                hookUtils.writeData("adaptation", "0")
+                HookUtils.writeData("adaptation", "0")
                 //   XposedBridge.log(it)
             }.onSuccess {
                 loadAllClazz(classLoader)
@@ -219,16 +217,16 @@ class QianjiHooker : Hooker() {
         val total = clazzRule.size
         val hashMap = Dex.findClazz(context.packageResourcePath, classLoader, clazzRule)
         if (hashMap.size == total) {
-            hookUtils.writeData("adaptation", code.toString())
+            HookUtils.writeData("adaptation", code.toString())
             clazz = hashMap
-            hookUtils.writeData("clazz", Gson().toJson(clazz))
+            HookUtils.writeData("clazz", Gson().toJson(clazz))
             XposedBridge.log("适配成功:$hashMap")
-            hookUtils.toastInfo("适配成功")
+            HookUtils.toastInfo("适配成功")
             loadAllClazz(classLoader)
             return true
         } else {
             XposedBridge.log("适配失败:$hashMap")
-            hookUtils.toastError("适配失败")
+            HookUtils.toastError("适配失败")
             return false
         }
     }

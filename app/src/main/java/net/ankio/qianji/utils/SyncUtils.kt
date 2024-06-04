@@ -10,8 +10,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import net.ankio.qianji.api.Hooker
-import net.ankio.qianji.model.BillInfo
-import net.ankio.qianji.model.BillModel
+import net.ankio.qianji.server.constant.BillType
+import net.ankio.qianji.server.model.AccountingConfig
+import net.ankio.qianji.server.model.AppBillInfo
+import net.ankio.qianji.server.model.Assets
+import net.ankio.qianji.server.model.BillInfo
+import net.ankio.qianji.server.model.BookName
+import net.ankio.qianji.server.model.Category
+import net.ankio.qianji.server.model.SettingModel
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import kotlin.coroutines.resume
@@ -21,8 +27,6 @@ import kotlin.coroutines.suspendCoroutine
  * 用于将钱迹的数据同步给自动记账
  */
 class SyncUtils(val context: Context, private val classLoader: ClassLoader, private val hooker: Hooker) {
-    private val api = hooker.hookUtils.getAutoAccounting()
-
     /**
      * 账本管理
      */
@@ -223,12 +227,11 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
 
     /**
      * 将钱迹的账本同步给自动记账
-     * @throws AutoAccountingException
      */
     suspend fun books() =
         withContext(Dispatchers.IO) {
             val list = XposedHelpers.callMethod(bookManager, "getAllBooks", true, 1) as List<*>
-            val bookList = arrayListOf<HashMap<String, Any>>()
+            val bookList = arrayListOf<BookName>()
 
             /**
              * [
@@ -249,35 +252,35 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
              */
             list.forEach { book ->
                 if (bookClazz.isInstance(book)) {
-                    val bookModel = HashMap<String, Any>()
+                    val bookModel = BookName()
                     // Get all fields of the Book class
                     val fields = bookClazz.declaredFields
                     for (field in fields) {
                         field.isAccessible = true
                         val value = field.get(book)
                         when (field.name) {
-                            "name" -> bookModel["name"] = value as String
-                            "cover" -> bookModel["icon"] = value as String
+                            "name" -> bookModel.name = value as String
+                            "cover" -> bookModel.icon = value as String
                             "bookId" -> {
                                 val hashMap =
                                     withContext(Dispatchers.Main) {
                                         getCategoryList(value as Long)
                                     }
-                                val arrayList = arrayListOf<HashMap<String, Any>>()
+                                val arrayList = arrayListOf<Category>()
                                 convertCategoryToModel(
                                     hashMap["list1"] as List<Any>,
-                                    1, // 支出
+                                    BillType.Expend.value, // 支出
                                 ).let {
                                     arrayList.addAll(it)
                                 }
                                 convertCategoryToModel(
                                     hashMap["list2"] as List<Any>,
-                                    2, // 收入
+                                    BillType.Income.value, // 收入
                                 ).let {
                                     arrayList.addAll(it)
                                 }
 
-                                bookModel["category"] = arrayList
+                                bookModel.category = arrayList
                             }
                         }
                     }
@@ -289,14 +292,14 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
             }
 
             val sync = Gson().toJson(bookList)
-            val md5 = hooker.hookUtils.md5(sync)
-            val server = api.getHash("sync_books_md5")
+            val md5 = HookUtils.md5(sync)
+            val server = SettingModel.get(context.packageName, "sync_books_md5")
             if (server == md5) {
-                XposedBridge.log("账本信息未发生变化，无需同步")
+                HookUtils.log("账本信息未发生变化，无需同步")
                 return@withContext
             }
-            XposedBridge.log("同步账本信息:$sync")
-            api.setBooks(sync, md5)
+            HookUtils.log("同步账本信息:$sync")
+            BookName.sync2Server(sync, md5)
         }
 
     /**
@@ -305,13 +308,13 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
     private fun convertCategoryToModel(
         list: List<*>,
         type: Int,
-    ): ArrayList<HashMap<String, Any>> {
-        val categories = arrayListOf<HashMap<String, Any>>()
+    ): ArrayList<Category> {
+        val categories = arrayListOf<Category>()
         list.forEach {
             if (it == null) return@forEach
             val category = it
-            val model = HashMap<String, Any>()
-            model["type"] = type
+            val model = Category()
+            model.type = type
             val fields = category::class.java.declaredFields
             for (field in fields) {
                 field.isAccessible = true
@@ -393,11 +396,11 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                  * ]
                  */
                 when (field.name) {
-                    "name" -> model["name"] = value as String
-                    "icon" -> model["icon"] = value as String
-                    "id" -> model["id"] = (value as Long).toString()
-                    "parentId" -> model["parent"] = (value as Long).toString()
-                    "sort" -> model["sort"] = value as Int
+                    "name" -> model.name = value as String
+                    "icon" -> model.icon = value as String
+                    "id" -> model.id = (value as Long).toString()
+                    "parentId" -> model.parent = (value as Long).toString()
+                    "sort" -> model.sort = value as Int
                     "subList" -> {
                         val subList = value as List<*>
                         //    XposedBridge.log("子分类:${Gson().toJson(subList)}")
@@ -412,7 +415,6 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
 
     /**
      * 将钱迹的资产同步给自动记账
-     * @throws AutoAccountingException
      */
     suspend fun assets() =
         withContext(Dispatchers.IO) {
@@ -420,11 +422,11 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 withContext(Dispatchers.Main) {
                     getAssetsList()
                 }
-            val assets = arrayListOf<HashMap<String, Any>>()
+            val assets = arrayListOf<Assets>()
 
             accounts.forEach {
                 val asset = it!!
-                val model = HashMap<String, Any>()
+                val model = Assets()
                 // XposedBridge.log("账户信息:${Gson().toJson(asset)}")
                 val fields = asset::class.java.declaredFields
 
@@ -453,7 +455,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 //    public static final int Type_Invest = 4;
                 //    public static final int Type_Money = 1;
                 //    public static final int Type_Recharge = 3;
-                model["type"] = // 自动记账的资产类型只有 普通（1）、债权人（2）、借款人（3）
+                model.type = // 自动记账的资产类型只有 普通（1）、债权人（2）、借款人（3）
                     when (type) {
                         1 -> 1
                         2 -> 1
@@ -472,15 +474,15 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                     field.isAccessible = true
                     val value = field.get(asset) ?: continue
                     when (field.name) {
-                        "name" -> model["name"] = value as String
-                        "icon" -> model["icon"] = value as String
-                        "sort" -> model["sort"] = value as Int
-                        "currency" -> model["currency"] = value as String
-                        "loanInfo" -> model["extra"] = Gson().toJson(value)
+                        "name" -> model.name = value as String
+                        "icon" -> model.icon = value as String
+                        "sort" -> model.sort = value as Int
+                        "currency" -> model.currency = value as String
+                        "loanInfo" -> model.extras = Gson().toJson(value)
 
                         "extra" -> {
-                            if (!model.containsKey("extra") || model["extra"] == "{}") {
-                                model["extra"] = Gson().toJson(value)
+                            if (model.extras == "{}") {
+                                model.extras = Gson().toJson(value)
                             }
                         }
                     }
@@ -488,19 +490,19 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 assets.add(model)
             }
             val sync = Gson().toJson(assets)
-            val md5 = hooker.hookUtils.md5(sync)
-            val server = api.getHash("sync_assets_md5")
+            val md5 = HookUtils.md5(sync)
+            val server = SettingModel.get(context.packageName, "sync_books_md5sync_assets_md5")
+
             if (server == md5) {
-                XposedBridge.log("资产信息未发生变化，无需同步")
+                HookUtils.log("资产信息未发生变化，无需同步")
                 return@withContext
             }
-            XposedBridge.log("同步账户信息:${Gson().toJson(assets)}")
-            api.setAssets(sync, md5)
+            HookUtils.log("同步账户信息:${Gson().toJson(assets)}")
+            Assets.sync2server(sync, md5)
         }
 
     /**
      * 将钱迹的账单同步给自动记账
-     * @throws AutoAccountingException
      */
     suspend fun billsFromQianJi() =
         withContext(Dispatchers.IO) {
@@ -549,41 +551,42 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
              * }*/
 
             val sync = Gson().toJson(convertBills(bxList, books))
-            val md5 = hooker.hookUtils.md5(sync)
-            val server = api.getHash("sync_bills_md5")
+            val md5 = HookUtils.md5(sync)
+            val server = HookUtils.readData("bxList_md5")
             if (server == md5) {
-                XposedBridge.log("资产信息未发生变化，无需同步")
+                HookUtils.log("资产信息未发生变化，无需同步")
                 return@withContext
             }
-            api.setBills(sync)
+            HookUtils.writeData("bxList_md5",md5)
+            AppBillInfo.sync2server(sync)
         }
 
     suspend fun billsFromAuto() =
         withContext(Dispatchers.IO) {
             runCatching {
-                val bills = Gson().fromJson(api.getBills() as JsonArray, List::class.java) as List<*>
+                val bills = BillInfo.getSyncBills()
                 XposedBridge.log("同步自动记账账单:$bills")
                 if (bills.isEmpty()) return@runCatching
                 withContext(Dispatchers.Main) {
-                    hooker.hookUtils.toast("正在从自动记账同步账单（${bills.size}）")
+                    HookUtils.toast("正在从自动记账同步账单（${bills.size}）")
                 }
                 var index = 1
                 bills.forEach {
                     withContext(Dispatchers.Main) {
-                        hooker.hookUtils.toast("正在从自动记账同步账单（$index/${bills.size}）")
+                        HookUtils.toast("正在从自动记账同步账单（$index/${bills.size}）")
                     }
                     val gson = Gson()
                     val bill = gson.fromJson(gson.toJson(it), BillInfo::class.java)
                     // 构建钱迹账单
-                    val uri = QianjiUri(bill, hooker.configSyncUtils.config).getUri()
+                    val uri = QianjiUri(bill, AccountingConfig.getConfig()).getUri()
                     val intent = Intent(Intent.ACTION_VIEW, uri)
                     context.startActivity(intent)
                     index++
-                    XposedBridge.log("同步自动记账账单:$uri")
+                    HookUtils.log("同步自动记账账单:$uri")
                     delay(3000L)
                 }
                 withContext(Dispatchers.Main) {
-                    hooker.hookUtils.toast("账单同步完成！")
+                    HookUtils.toast("账单同步完成！")
                 }
             }
         }
@@ -594,11 +597,11 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
     private suspend fun convertBills(
         anyBills: List<*>,
         books: List<*>,
-    ): List<BillModel> {
-        val bills = arrayListOf<BillModel>()
+    ): List<AppBillInfo> {
+        val bills = arrayListOf<AppBillInfo>()
         anyBills.forEach {
-            val bill = BillModel()
-            bill.type = 4
+            val bill = AppBillInfo()
+            bill.type = BillType.ExpendReimbursement.value
             val fields = billClazz.declaredFields
             for (field in fields) {
                 field.isAccessible = true

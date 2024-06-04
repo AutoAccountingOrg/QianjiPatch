@@ -18,16 +18,12 @@ package net.ankio.qianji.api
 import android.content.Context
 import com.google.gson.Gson
 import de.robv.android.xposed.XposedBridge
-import net.ankio.auto.sdk.AutoAccounting
 import net.ankio.dex.Dex
 import net.ankio.dex.model.ClazzMethod
-import net.ankio.qianji.HookMainApp
 import net.ankio.qianji.utils.HookUtils
 
 abstract class PartHooker(val hooker: Hooker) {
     abstract val hookName: String
-    lateinit var hookUtils: HookUtils
-    lateinit var autoApi: AutoAccounting
 
     abstract fun onInit(
         classLoader: ClassLoader,
@@ -38,39 +34,27 @@ abstract class PartHooker(val hooker: Hooker) {
      * 正常输出日志
      */
     fun log(string: String) {
-        hooker.hookUtils.log(HookMainApp.getTag(hooker.appName, getSimpleName()), string)
-    }
-
-    private fun getSimpleName(): String {
-        val stackTrace = Thread.currentThread().stackTrace
-        val callerClassName =
-            if (stackTrace.size >= 5) {
-                stackTrace[4].className
-            } else {
-                "Unknown"
-            }
-        return callerClassName.substringAfterLast('.') // 获取简单类名
+        HookUtils.log("${hooker.appName} $hookName", string)
     }
 
     open val methodsRule = hashMapOf<String, ClazzMethod>()
     open var method = hashMapOf<String, String>()
 
     fun findMethods(clazzLoader: ClassLoader): Boolean {
-        val hookUtils = hooker.hookUtils
-        val code = hookUtils.getVersionCode()
-        val adaptationVersion = hookUtils.readData("methods_adaptation").toIntOrNull() ?: 0
+        val code = HookUtils.getVersionCode()
+        val adaptationVersion = HookUtils.readData("methods_adaptation").toIntOrNull() ?: 0
         if (adaptationVersion == code) {
             runCatching {
                 method =
                     Gson().fromJson(
-                        hookUtils.readData("clazz_method"),
+                        HookUtils.readData("clazz_method"),
                         HashMap::class.java,
                     ) as HashMap<String, String>
                 if (method.size != methodsRule.size) {
                     throw Exception("适配失败")
                 }
             }.onFailure {
-                hookUtils.writeData("methods_adaptation", "0")
+                HookUtils.writeData("methods_adaptation", "0")
                 XposedBridge.log(it)
             }.onSuccess {
                 return true
@@ -92,8 +76,8 @@ abstract class PartHooker(val hooker: Hooker) {
         }
         if (method.size != methodsRule.size) return false
 
-        hookUtils.writeData("methods_adaptation", code.toString())
-        hookUtils.writeData("clazz_method", Gson().toJson(method))
+        HookUtils.writeData("methods_adaptation", code.toString())
+        HookUtils.writeData("clazz_method", Gson().toJson(method))
         return true
     }
 }

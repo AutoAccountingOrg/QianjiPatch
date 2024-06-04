@@ -39,20 +39,10 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import net.ankio.qianji.HookMainApp
-import net.ankio.qianji.utils.ConfigSyncUtils
 import net.ankio.qianji.utils.HookUtils
 
 abstract class Hooker : iHooker {
     abstract var partHookers: MutableList<PartHooker>
-    lateinit var hookUtils: HookUtils
-    lateinit var configSyncUtils: ConfigSyncUtils
-    private lateinit var job: Job
-
-    lateinit var scope: CoroutineScope
 
     private fun hookMainInOtherAppContext() {
         var hookStatus = false
@@ -84,9 +74,6 @@ abstract class Hooker : iHooker {
     }
 
     fun stop() {
-        if (::job.isInitialized) {
-            job.cancel()
-        }
     }
 
     fun initLoadPackage(
@@ -95,29 +82,22 @@ abstract class Hooker : iHooker {
     ) {
         XposedBridge.log("Welcome to 钱迹补丁")
         if (classLoader == null) {
-            XposedBridge.log(HookMainApp.getTag() + this.appName + "hook失败: classloader = null")
+            XposedBridge.log(this.appName + "hook失败: classloader = null")
             return
         }
-        hookUtils = HookUtils(application)
-
-        job = Job()
-        scope = CoroutineScope(Dispatchers.IO + job)
-        configSyncUtils = ConfigSyncUtils(application, this)
-
+        HookUtils.setApplication(application)
         if (hookLoadPackage(classLoader, application)) {
-            Log.i(HookMainApp.getTag(appName, packPageName), "欢迎使用钱迹补丁，该日志表示 $appName App 已被hook。")
+            Log.i(appName, "欢迎使用钱迹补丁，该日志表示 $appName App 已被hook。")
             for (hook in partHookers) {
                 try {
-                    Log.i(HookMainApp.getTag(appName, packPageName), "正在初始化Hook:${hook.hookName}...")
-                    hook.hookUtils = hookUtils
-                    hook.autoApi = hookUtils.getAutoAccounting()
+                    Log.i(appName, "正在初始化Hook:${hook.hookName}...")
                     hook.onInit(classLoader, application)
                 } catch (e: Exception) {
                     e.message?.let { Log.e("AutoAccountingError", it) }
-                    Log.i(HookMainApp.getTag(), "钱迹补丁Hook异常..${e.message}.")
+                    Log.i(appName, "钱迹补丁Hook异常..${e.message}.")
                     XposedBridge.log(e)
                     // 不管什么原因异常，都有可能是适配的问题，所以直接将适配版本 = 0
-                    hookUtils.writeData("adaptation", "0")
+                    HookUtils.writeData("adaptation", "0")
                 }
             }
         }
