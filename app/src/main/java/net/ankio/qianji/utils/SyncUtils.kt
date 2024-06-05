@@ -491,7 +491,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
             }
             val sync = Gson().toJson(assets)
             val md5 = HookUtils.md5(sync)
-            val server = SettingModel.get(context.packageName, "sync_books_md5sync_assets_md5")
+            val server = SettingModel.get(context.packageName, "sync_assets_md5")
 
             if (server == md5) {
                 HookUtils.log("资产信息未发生变化，无需同步")
@@ -554,7 +554,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
             val md5 = HookUtils.md5(sync)
             val server = HookUtils.readData("bxList_md5")
             if (server == md5) {
-                HookUtils.log("资产信息未发生变化，无需同步")
+                HookUtils.log("报销列表信息未发生变化，无需同步")
                 return@withContext
             }
             HookUtils.writeData("bxList_md5",md5)
