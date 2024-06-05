@@ -17,8 +17,11 @@ package net.ankio.qianji.server
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import net.ankio.qianji.server.model.AccountingConfig
 import net.ankio.qianji.server.model.SettingModel
 import net.ankio.qianji.utils.HookUtils
@@ -51,6 +54,26 @@ class AutoServer {
 
     private var ws: WebSocket? = null
     private val callbacks: HashMap<String, (json: JsonObject) -> Unit> = HashMap()
+
+    private var times = 0
+    suspend fun reconnect() = withContext(Dispatchers.Main){
+        if (times > 15) {
+            Logger.e("重连次数过多")
+            HookUtils.toastError("无法连接到自动记账服务。")
+            return@withContext
+        }
+        ws = null
+        withContext(Dispatchers.IO){
+            delay(1000L * times)
+            times++
+            withContext(Dispatchers.Main){
+                connect()
+            }
+        }
+
+
+
+    }
 
     suspend fun sendMsg(
         type: String,
@@ -157,6 +180,9 @@ class AutoServer {
                 ) {
                     ws = null
                     println("WebSocket closed: $code / $reason")
+                    HookUtils.getScope().launch {
+                        reconnect()
+                    }
                 }
 
                 override fun onFailure(
