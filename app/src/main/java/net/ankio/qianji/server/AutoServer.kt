@@ -64,7 +64,7 @@ class AutoServer {
         }
         ws = null
         withContext(Dispatchers.IO){
-            delay(1000L * times)
+            delay(10L * times)
             times++
             withContext(Dispatchers.Main){
                 connect()
@@ -105,6 +105,7 @@ class AutoServer {
                 .url("$HOST:$PORT/")
                 .build()
 
+        Logger.d("开始连接服务端")
         val listener: WebSocketListener =
             object : WebSocketListener() {
                 override fun onOpen(
@@ -179,7 +180,7 @@ class AutoServer {
                     reason: String,
                 ) {
                     ws = null
-                    println("WebSocket closed: $code / $reason")
+                    Logger.d("WebSocket closed: $code / $reason")
                     HookUtils.getScope().launch {
                         reconnect()
                     }
@@ -191,6 +192,9 @@ class AutoServer {
                     response: Response?,
                 ) {
                     Logger.e("WebSocket error: " + t.message, t)
+                    HookUtils.getScope().launch {
+                        reconnect()
+                    }
                 }
             }
 
