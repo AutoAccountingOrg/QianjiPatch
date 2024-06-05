@@ -15,9 +15,9 @@ data class AppBillInfo(
     var accountTo: String = "", // 转入账户名称
      ){
     companion object{
-        fun sync2server(string: String){
+        fun sync2server(bills:List<AppBillInfo>,md5:String){
             HookUtils.getScope().launch {
-                HookUtils.getService().sendMsg("app/bill/add",hashMapOf("bills" to string))
+                HookUtils.getService().sendMsg("app/bill/add",hashMapOf("bills" to bills , "md5" to md5))
             }
         }
     }

@@ -299,7 +299,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 return@withContext
             }
             HookUtils.log("同步账本信息:$sync")
-            BookName.sync2Server(sync, md5)
+            BookName.sync2Server(bookList, md5)
         }
 
     /**
@@ -498,7 +498,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                 return@withContext
             }
             HookUtils.log("同步账户信息:${Gson().toJson(assets)}")
-            Assets.sync2server(sync, md5)
+            Assets.sync2server(assets, md5)
         }
 
     /**
@@ -549,16 +549,19 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
              *     "updateTimeInSec": 0,
              *     "userid": "200104405e109647c18e9"
              * }*/
+            val bills = convertBills(bxList, books)
 
-            val sync = Gson().toJson(convertBills(bxList, books))
+            val sync = Gson().toJson(bills)
             val md5 = HookUtils.md5(sync)
-            val server = HookUtils.readData("bxList_md5")
-            if (server == md5) {
+            val local = HookUtils.readData("sync_bills_md5")
+            val server = SettingModel.get(context.packageName, "sync_bills_md5")
+            if (local == md5 && server == md5) {
                 HookUtils.log("报销列表信息未发生变化，无需同步")
                 return@withContext
             }
-            HookUtils.writeData("bxList_md5",md5)
-            AppBillInfo.sync2server(sync)
+
+            HookUtils.writeData("sync_bills_md5",md5)
+            AppBillInfo.sync2server(bills,md5)
         }
 
     suspend fun billsFromAuto() =

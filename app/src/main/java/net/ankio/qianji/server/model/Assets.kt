@@ -34,7 +34,7 @@ class Assets {
 
     companion object {
         fun sync2server(
-            data: String,
+            data: List<Assets>,
             md5: String,
         ) {
             HookUtils.getScope().launch {

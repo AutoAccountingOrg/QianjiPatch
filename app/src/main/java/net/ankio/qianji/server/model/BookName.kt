@@ -34,13 +34,13 @@ class BookName {
 
     companion object {
         suspend fun sync2Server(
-            string: String,
+            data: List<BookName>,
             md5: String,
         ) = withContext(Dispatchers.IO) {
             HookUtils.getService().sendMsg(
                 "book/sync",
                 hashMapOf(
-                    "data" to string,
+                    "data" to data,
                     "md5" to md5,
                 ),
             )
