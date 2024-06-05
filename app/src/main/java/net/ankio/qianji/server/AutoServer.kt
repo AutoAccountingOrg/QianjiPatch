@@ -146,6 +146,7 @@ class AutoServer {
                             } else if (type == "auth/success") {
                                 Logger.d("服务链接成功")
                                 ws = webSocket
+                                times = 0
                             }
                             val id = json.get("id").asString
                             callbacks[id]?.invoke(json)
