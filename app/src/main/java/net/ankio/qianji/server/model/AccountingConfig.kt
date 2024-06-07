@@ -34,6 +34,7 @@ data class AccountingConfig(
                 SettingModel.set(SettingModel().apply {
                     key = "config"
                     app= "server"
+                    value = configText
                 })
                 HookUtils.log("Config", configText)
             }.onFailure {
