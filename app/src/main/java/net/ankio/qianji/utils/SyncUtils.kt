@@ -549,12 +549,13 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
              *     "updateTimeInSec": 0,
              *     "userid": "200104405e109647c18e9"
              * }*/
+            Logger.d("报销账单: ${Gson().toJson(bxList)}, 数量：${bxList.size}")
             val bills = convertBills(bxList, books)
 
             val sync = Gson().toJson(bills)
             val md5 = HookUtils.md5(sync)
             val local = HookUtils.readData("sync_bills_md5")
-            val server = SettingModel.get(context.packageName, "sync_bills_md5")
+            val server = SettingModel.get("server", "sync_bills_md5")
             if (local == md5 && server == md5) {
                 HookUtils.log("报销列表信息未发生变化，无需同步")
                 return@withContext
@@ -614,8 +615,8 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                     "billid" -> bill.id = (value as Long).toString()
                     "remark" -> bill.remark = (value as String?) ?: ""
                     "createtimeInSec" -> bill.time = (value as Long) * 1000
-                    "fromact" -> bill.accountFrom = value as String
-                    "descinfo" -> bill.accountTo = value as String
+                    "fromact" -> bill.accountFrom = (value as String?) ?: ""
+                    "descinfo" -> bill.accountTo = (value as String?) ?: ""
                     "bookId" -> {
                         books.forEach { book ->
                             if (bookClazz.isInstance(book)) {

@@ -16,6 +16,7 @@
 package net.ankio.qianji.utils
 
 import android.util.Log
+import de.robv.android.xposed.XposedBridge
 import kotlinx.coroutines.launch
 import net.ankio.qianji.server.model.LogModel
 
@@ -53,6 +54,7 @@ object Logger {
                 Log.WARN -> Log.w(tag, it)
                 Log.ERROR -> Log.e(tag, it)
             }
+            XposedBridge.log(it)
         }
         val (thread, file, line) = getLogHeader()
 
