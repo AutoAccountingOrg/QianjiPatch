@@ -569,15 +569,12 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
         withContext(Dispatchers.IO) {
             runCatching {
                 val bills = BillInfo.getSyncBills()
-                XposedBridge.log("同步自动记账账单:$bills")
+                HookUtils.log("同步自动记账账单(Total):$bills")
                 if (bills.isEmpty()) return@runCatching
-                withContext(Dispatchers.Main) {
-                    HookUtils.toast("正在从自动记账同步账单（${bills.size}）")
-                }
                 var index = 1
                 bills.forEach {
                     withContext(Dispatchers.Main) {
-                        HookUtils.toast("正在从自动记账同步账单（$index/${bills.size}）")
+                        HookUtils.toastInfo("正在从自动记账同步账单（$index/${bills.size}）")
                     }
                     val gson = Gson()
                     val bill = gson.fromJson(gson.toJson(it), BillInfo::class.java)
@@ -590,8 +587,11 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                     delay(3000L)
                 }
                 withContext(Dispatchers.Main) {
-                    HookUtils.toast("账单同步完成！")
+                    HookUtils.toastInfo("账单同步完成！")
                 }
+            }.onFailure {
+                HookUtils.log("同步自动记账账单失败")
+                Logger.e("同步自动记账账单失败", it)
             }
         }
 
@@ -650,4 +650,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
         }
         return bills
     }
+
+
+
 }

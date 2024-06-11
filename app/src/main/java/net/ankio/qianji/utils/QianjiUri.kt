@@ -13,7 +13,7 @@ class QianjiUri(private val billModel: BillInfo, config: AccountingConfig) {
     init {
         uri.append("?type=${QianjiBillType.fromBillType(billModel.type)}")
         uri.append("&money=${billModel.money}")
-        uri.append("&time=${formatTime(billModel.timeStamp)}")
+        uri.append("&time=${formatTime(billModel.time)}")
         uri.append("&remark=${urlEncode(billModel.remark)}")
         var category = billModel.cateName
         if (billModel.cateName.contains("-")) {
@@ -78,14 +78,14 @@ class QianjiUri(private val billModel: BillInfo, config: AccountingConfig) {
             val extendData = uri.getQueryParameter("extendData") ?: ""
             val billInfo = BillInfo()
             billInfo.type = type
-            billInfo.money = amount.toInt()
-            billInfo.timeStamp = time
+            billInfo.money = amount
+            billInfo.time = time
             billInfo.remark = remark
             billInfo.cateName = cateName
             billInfo.bookName = bookName
             billInfo.accountNameFrom = accountNameFrom
             billInfo.accountNameTo = accountNameTo
-            billInfo.fee = fee.toInt()
+            billInfo.fee = fee
             billInfo.extendData = extendData
             return billInfo
         }

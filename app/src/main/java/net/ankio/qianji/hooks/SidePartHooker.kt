@@ -187,6 +187,14 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
 
     private suspend fun syncBillsFromAutoAccounting(activity: Activity) =
         withContext(Dispatchers.IO) {
+
+            val last = HookUtils.readData("lastSyncTime").toLongOrNull() ?: 0
+            val now = System.currentTimeMillis()
+            if (now - last < 1000 * 60) {
+                HookUtils.log("距离上次同步时间不足1分钟")
+                return@withContext
+            }
+            HookUtils.writeData("lastSyncTime", now.toString())
             if (!UserUtils.isLogin(hooker)) {
                 HookUtils.toastError("未登录用户不支持同步数据")
                 return@withContext

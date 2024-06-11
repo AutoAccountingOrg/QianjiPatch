@@ -47,7 +47,7 @@ object HookUtils {
 
     fun getVersionCode(): Int {
         return runCatching {
-            application.packageManager.getPackageInfo(application.packageName, 0).versionCode
+            application.packageManager.getPackageInfo(application.packageName, 0).longVersionCode.toInt()
         }.getOrElse {
             0
         }

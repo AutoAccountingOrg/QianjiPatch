@@ -185,7 +185,7 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
         // 报销时间，参数4，类型是java.util.Calendar
 
         val calendar = Calendar.getInstance()
-        calendar.timeInMillis = billModel.timeStamp
+        calendar.timeInMillis = billModel.time
 
         // 货币类型，参数5
         val currencyExtra = classLoader.loadClass("com.mutangtech.qianji.data.model.CurrencyExtra")

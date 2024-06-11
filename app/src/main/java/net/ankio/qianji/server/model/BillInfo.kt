@@ -15,9 +15,11 @@
 package net.ankio.qianji.server.model
 
 import com.google.gson.Gson
+import com.google.gson.JsonArray
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.ankio.qianji.utils.HookUtils
+import net.ankio.qianji.utils.Logger
 
 class BillInfo {
     // 账单列表
@@ -36,18 +38,18 @@ class BillInfo {
     /**
      * 金额 大于0
      */
-    var money: Int = 0
+    var money: Float = 0f
 
     /**
      * 手续费
      */
-    var fee: Int = 0
+    var fee: Float = 0f
 
     /**
      * 记账时间
      * yyyy-MM-dd HH:mm:ss
      */
-    var timeStamp: Long = 0
+    var time: Long = 0
 
     /**
      * 商户名称
@@ -107,7 +109,7 @@ class BillInfo {
     /**
      * 是否已从App同步
      */
-    var syncFromApp: Boolean = false
+    var syncFromApp: Int = 0
 
     /**
      * 备注信息
@@ -121,9 +123,19 @@ class BillInfo {
 
         suspend fun getSyncBills(): Array<BillInfo> {
             val data = HookUtils.getService().sendMsg("bill/sync/list",null)
-            return data as Array<BillInfo>
+            return runCatching {
+                Gson().fromJson(data as JsonArray, Array<BillInfo>::class.java)
+            }.onFailure {
+                Logger.e("getSyncBills", it)
+            }.getOrElse {
+                emptyArray()
+            }
         }
 
 
+    }
+
+   override fun toString(): String {
+        return Gson().toJson(this)
     }
 }
