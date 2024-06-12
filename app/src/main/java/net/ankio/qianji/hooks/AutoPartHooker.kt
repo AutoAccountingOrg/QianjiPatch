@@ -12,6 +12,7 @@ import net.ankio.dex.model.ClazzField
 import net.ankio.dex.model.ClazzMethod
 import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
+import net.ankio.qianji.server.constant.BillType
 import net.ankio.qianji.server.model.BillInfo
 import net.ankio.qianji.utils.HookUtils
 import net.ankio.qianji.utils.Logger
@@ -27,7 +28,7 @@ import java.util.HashSet
 
 class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
     override val hookName: String
-        get() = "自动记账接口HooK"
+        get() = "自动记账接口Hook"
     private lateinit var syncUtils: SyncUtils
 
     private val intentAct = "com.mutangtech.qianji.bill.auto.AddBillIntentAct"
@@ -171,12 +172,14 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
                     val errorInfo = if(error == null) "" else error as String
 
                     val status = XposedHelpers.callMethod(result, "getStatus") as Int
-                    val value = XposedHelpers.callMethod(result, "getValue") as String
+                    var value = XposedHelpers.callMethod(result, "getValue")
+
+                    val valueInfo = if(value == null) "" else value as String
 
 
-                    if(status == 1){
+                    if(status == 1 && value!=null){
                         HookUtils.log("自动记账成功")
-                        QianjiUri.parseUri(Uri.parse(value)).let {
+                        QianjiUri.parseUri(Uri.parse(valueInfo)).let {
                            HookUtils.getScope().launch {
                                BillInfo.update(it.id)
                            }
@@ -285,6 +288,8 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
             "amount = $amount, calendar = $calendar, currencyExtraInstance = $currencyExtraInstance,account = $assetAccount, selectBills = $selectBills",
         )
 
+        BillInfo.update(billModel.id)
+
         withContext(Dispatchers.Main) {
             doBaoXiao.invoke(obj, set, assetAccount, amount, calendar, currencyExtraInstance)
 
@@ -295,7 +300,9 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
             showToastMethod.isAccessible = true
             showToastMethod.invoke(AddBillIntentAct)
 
-            HookUtils.toast("报销成功")
+
+
+            HookUtils.toastInfo("报销成功")
         }
     }
 }
