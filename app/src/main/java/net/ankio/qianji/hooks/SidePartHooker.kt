@@ -22,6 +22,7 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ankio.qianji.BuildConfig
@@ -64,6 +65,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 override fun afterHookedMethod(param: MethodHookParam?) {
                     super.afterHookedMethod(param)
                     val activity = param!!.thisObject as Activity
+                    HookUtils.writeData("lastSyncTime", "0")
                     /**
                      * activity as  ComponentActivity
                      */
@@ -109,8 +111,6 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                         // 调用自动记账存储
                         HookUtils.getScope().launch {
                             HookUtils.getService().putToken(resultData!!)
-                            HookUtils.getService().connect()
-                            syncBillsFromAutoAccounting(activity)
                         }
                     }
                 }
@@ -124,13 +124,22 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 override fun afterHookedMethod(param: MethodHookParam?) {
                     super.afterHookedMethod(param)
                     val activity = param!!.thisObject as Activity
-                    // 如果自动记账功能打开，从自动记账同步账单
-                    val isAutoAccounting = HookUtils.getService().isConnected()
-                    XposedBridge.log("$clazz onResume => isAutoAccounting ? $isAutoAccounting")
-                    if (isAutoAccounting) {
-                        HookUtils.getScope().launch {
-                            syncBillsFromAutoAccounting(activity)
+                    HookUtils.getScope().launch {
+
+                        var isAutoAccounting = HookUtils.getService().isConnected()
+                        while (!isAutoAccounting) {
+
+                            //这里每隔2秒循环等待自动记账链接成功
+
+                            delay(2000L)
+                            isAutoAccounting = HookUtils.getService().isConnected()
+                            XposedBridge.log("$clazz onResume => isAutoAccounting ? $isAutoAccounting")
+                            if (isAutoAccounting) {
+                                break
+                            }
+
                         }
+                        syncBillsFromAutoAccounting(activity)
                     }
                 }
             },
@@ -187,9 +196,9 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
 
     private suspend fun syncBillsFromAutoAccounting(activity: Activity) =
         withContext(Dispatchers.IO) {
-
             val last = HookUtils.readData("lastSyncTime").toLongOrNull() ?: 0
             val now = System.currentTimeMillis()
+            //不能过于频繁，否则会导致用户无法操作
             if (now - last < 1000 * 60) {
                 HookUtils.log("距离上次同步时间不足1分钟")
                 return@withContext
@@ -199,6 +208,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
                 HookUtils.toastError("未登录用户不支持同步数据")
                 return@withContext
             }
+
             HookUtils.getScope().launch {
                 runCatching {
                     log("同步账本")
@@ -212,6 +222,7 @@ class SidePartHooker(hooker: Hooker) : PartHooker(hooker) {
 
                     log("从自动记账同步账单")
                     syncUtils.billsFromAuto()
+
                 }.onFailure {
                     XposedBridge.log(it)
                 }
