@@ -64,9 +64,10 @@ abstract class Hooker : iHooker {
                         initLoadPackage(context.classLoader, application)
                     }.onFailure {
                         XposedBridge.log("钱迹补丁Hook异常..${it.message}.")
-                        Log.e("钱迹补丁Hook异常", it.message.toString())
                         it.printStackTrace()
                         XposedBridge.log(it)
+                        HookUtils.writeData("adaptation", "0")
+                        HookUtils.writeData("methods_adaptation","0")
                     }
                 }
             },
@@ -93,11 +94,15 @@ abstract class Hooker : iHooker {
                     Log.i(appName, "正在初始化Hook:${hook.hookName}...")
                     hook.onInit(classLoader, application)
                 } catch (e: Exception) {
-                    e.message?.let { Log.e("AutoAccountingError", it) }
-                    Log.i(appName, "钱迹补丁Hook异常..${e.message}.")
-                    XposedBridge.log(e)
                     // 不管什么原因异常，都有可能是适配的问题，所以直接将适配版本 = 0
                     HookUtils.writeData("adaptation", "0")
+                    HookUtils.writeData("methods_adaptation","0")
+                    e.message?.let { Log.e("AutoAccountingError", it) }
+                    Log.i(appName, "钱迹补丁Hook异常..${e.message}.")
+
+
+
+                    Log.i(appName, "钱迹补丁重置Hook版本")
                 }
             }
         }

@@ -118,7 +118,7 @@ class BillInfo {
 
     companion object {
         suspend fun update(id:Int) = withContext(Dispatchers.IO) {
-            HookUtils.getService().sendMsg("bill/sync/update", hashMapOf("id" to id))
+            HookUtils.getService().sendMsg("bill/sync/update", hashMapOf("id" to id , "status" to 1))
         }
 
         suspend fun getSyncBills(): Array<BillInfo> {

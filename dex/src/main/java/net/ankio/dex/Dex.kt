@@ -196,10 +196,10 @@ object Dex {
                 } else {
                     true
                 }
-
+            //println("测试"+Modifier.toString(method.modifiers) + "  "+method.name)
             val condition3 =
                 if (clazzMethod.modifiers.isNotEmpty()) {
-                    method.modifiers.toString() == clazzMethod.modifiers
+                    Modifier.toString(method.modifiers) == clazzMethod.modifiers
                 } else {
                     true
                 }
@@ -253,10 +253,9 @@ object Dex {
                 } else {
                     true
                 }
-
             val condition3 =
                 if (clazzMethod.modifiers.isNotEmpty()) {
-                    method.modifiers.toString() == clazzMethod.modifiers
+                    Modifier.toString(method.modifiers) == clazzMethod.modifiers
                 } else {
                     true
                 }

@@ -66,7 +66,7 @@ object HookUtils {
 
         editor.putString(key, value)
 
-        editor.apply() // 提交修改
+        editor.commit() // 提交修改
     }
 
     fun readData(key: String): String {

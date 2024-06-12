@@ -45,6 +45,8 @@ class QianjiUri(private val billModel: BillInfo, config: AccountingConfig) {
         uri.append("&extendData=${billModel.extendData}")
 
         uri.append("&showresult=0")
+
+        uri.append("&id=").append(billModel.id)
     }
 
     fun getUri(): Uri {
@@ -76,6 +78,7 @@ class QianjiUri(private val billModel: BillInfo, config: AccountingConfig) {
             val accountNameTo = uri.getQueryParameter("accountname2") ?: ""
             val fee = uri.getQueryParameter("fee")?.toFloat() ?: 0.0F
             val extendData = uri.getQueryParameter("extendData") ?: ""
+            val id = uri.getQueryParameter("id")?.toInt() ?: 0
             val billInfo = BillInfo()
             billInfo.type = type
             billInfo.money = amount
@@ -87,6 +90,7 @@ class QianjiUri(private val billModel: BillInfo, config: AccountingConfig) {
             billInfo.accountNameTo = accountNameTo
             billInfo.fee = fee
             billInfo.extendData = extendData
+            billInfo.id = id
             return billInfo
         }
     }

@@ -584,7 +584,7 @@ class SyncUtils(val context: Context, private val classLoader: ClassLoader, priv
                     context.startActivity(intent)
                     index++
                     HookUtils.log("同步自动记账账单:$uri")
-                    delay(3000L)
+                    delay(500L)
                 }
                 withContext(Dispatchers.Main) {
                     HookUtils.toastInfo("账单同步完成！")

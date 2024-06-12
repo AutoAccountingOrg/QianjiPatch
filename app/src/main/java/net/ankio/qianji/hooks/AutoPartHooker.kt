@@ -2,6 +2,7 @@ package net.ankio.qianji.hooks
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,7 @@ import net.ankio.qianji.api.Hooker
 import net.ankio.qianji.api.PartHooker
 import net.ankio.qianji.server.model.BillInfo
 import net.ankio.qianji.utils.HookUtils
+import net.ankio.qianji.utils.Logger
 import net.ankio.qianji.utils.QianjiBillType
 import net.ankio.qianji.utils.QianjiUri
 import net.ankio.qianji.utils.SyncUtils
@@ -22,14 +24,18 @@ import java.lang.reflect.Proxy
 import java.util.Calendar
 import java.util.HashSet
 
+
 class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
     override val hookName: String
         get() = "自动记账接口HooK"
     private lateinit var syncUtils: SyncUtils
 
+    private val intentAct = "com.mutangtech.qianji.bill.auto.AddBillIntentAct"
+
+    private lateinit var intentActClazz : Class<*>
     override val methodsRule: HashMap<String, ClazzMethod> =
         hashMapOf(
-            "com.mutangtech.qianji.bill.auto.AddBillIntentAct#HandleIntent" to
+            "$intentAct#HandleIntent" to
                 ClazzMethod(
                     parameters =
                         listOf(
@@ -39,6 +45,19 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
                         ),
                     regex = "^\\w{2}$",
                 ),
+
+            "$intentAct#InsertAutoTask" to
+                    ClazzMethod(
+                        parameters =
+                        listOf(
+                            ClazzField(
+                                type = "com.mutangtech.qianji.data.model.AutoTaskLog",
+                            ),
+
+                            ),
+                        regex = "^\\w{2}$",
+                        modifiers = "private static final",
+                    ),
         )
 
     override fun onInit(
@@ -50,11 +69,17 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
             log("未找到方法")
             return
         }
-
+        intentActClazz = XposedHelpers.findClass(intentAct, classLoader)
+        /**
+         * 解锁钱迹接口调用超时时间
+         */
+        XposedHelpers.setStaticObjectField(intentActClazz, "FREQUENCY_LIMIT_TIME", 1L)
+        /**
+         * 添加自定义调用魔法
+         */
         XposedHelpers.findAndHookMethod(
-            "com.mutangtech.qianji.bill.auto.AddBillIntentAct",
-            classLoader,
-            method["com.mutangtech.qianji.bill.auto.AddBillIntentAct#HandleIntent"],
+            intentActClazz,
+            method["$intentAct#HandleIntent"],
             Intent::class.java,
             object : XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
@@ -124,7 +149,47 @@ class AutoPartHooker(hooker: Hooker) : PartHooker(hooker) {
                 }
             },
         )
+
+        /**
+         * 自动记账接口错误信息捕获
+         */
+        val autoTask = classLoader.loadClass("com.mutangtech.qianji.data.model.AutoTaskLog")
+
+
+
+
+        XposedHelpers.findAndHookMethod(
+            intentActClazz,
+            method["$intentAct#InsertAutoTask"],
+            autoTask,
+            object : XC_MethodHook() {
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    super.beforeHookedMethod(param)
+                    val result = param.args[0]
+                    val error = XposedHelpers.callMethod(result, "getError")
+
+                    val errorInfo = if(error == null) "" else error as String
+
+                    val status = XposedHelpers.callMethod(result, "getStatus") as Int
+                    val value = XposedHelpers.callMethod(result, "getValue") as String
+
+
+                    if(status == 1){
+                        HookUtils.log("自动记账成功")
+                        QianjiUri.parseUri(Uri.parse(value)).let {
+                           HookUtils.getScope().launch {
+                               BillInfo.update(it.id)
+                           }
+                        }
+                    }else if(status == -1){
+                        HookUtils.toastError("自动记账失败：$errorInfo")
+                    }
+
+                }
+            },
+        )
     }
+
 
     suspend fun incomeReimbursement(
         billModel: BillInfo,
