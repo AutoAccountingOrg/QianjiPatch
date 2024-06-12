@@ -57,22 +57,14 @@ class AutoServer {
 
     private var times = 0
     suspend fun reconnect() = withContext(Dispatchers.Main){
-        if (times > 15) {
-            Logger.e("重连次数过多")
-            HookUtils.toastError("无法连接到自动记账服务。")
-            return@withContext
-        }
         ws = null
         withContext(Dispatchers.IO){
-            delay(10L * times)
+            delay(1000L * times)
             times++
             withContext(Dispatchers.Main){
                 connect()
             }
         }
-
-
-
     }
 
     suspend fun sendMsg(
