@@ -7,6 +7,7 @@
 <img src="https://img.shields.io/static/v1?label=framework&message=Xposed&color=success&style=for-the-badge"/>
  <img src="https://img.shields.io/static/v1?label=licenes&message=GPL3.0&color=important&style=for-the-badge"/>
  <img src="https://img.shields.io/github/stars/AutoAccountingOrg/QianjiPatch.svg?style=for-the-badge"/></p>
+
 # 重要
 
 钱迹补丁相关功能已合并进自动记账：https://github.com/AutoAccountingOrg/AutoAccounting
